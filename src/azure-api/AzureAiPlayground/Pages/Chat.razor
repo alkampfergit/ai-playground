@@ -1,0 +1,266 @@
+@page "/chat"
+@using AzureAiLibrary;
+@using AzureAiPlayground.Data;
+@using AzureAiPlayground.Support;
+@inject IJSRuntime JSRuntime
+@inject ChatClient ChatClient
+@inject FolderDatabaseFactory _dbFactory;
+@inject NavigationManager _navManager;
+
+<h3>AI Chat</h3>
+
+<MudContainer Style="max-width: 800px; margin: auto;">
+
+    <MudPaper Elevation="1" Class="p-3">
+        <MudGrid>
+            <MudItem xs="12" sm="1" md="1">
+                <MudContainer Style="height: 100%; width: 100%" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@(ChatUi.Favorited ? Icons.Material.Filled.Favorite : Icons.Material.Filled.FavoriteBorder)"
+                             Style="cursor:pointer;"
+                             Color="@(ChatUi.Favorited ? Color.Primary : Color.Default)"
+                             Size="Size.Medium"
+                             @onclick="ToggleFavorite" />
+                </MudContainer>
+            </MudItem>
+            <MudItem xs="12" sm="11" md="11">
+                <MudTextField @bind-Value="@Description" Label="Chat Description" />
+            </MudItem>
+        </MudGrid>
+
+        <MudTextField @bind-Value="@ChatUi.Parameters.MaxResponse" Label="Max Response" InputType="InputType.Number" />
+
+        <MudSlider @bind-Value="@ChatUi.Parameters.Temperature" Min="0" Max="1" Step="0.01" Color="Color.Primary" />
+        <MudText>Temperature: @ChatUi.Parameters.Temperature</MudText>
+
+        <MudSlider @bind-Value="@ChatUi.Parameters.TopP" Min="0" Max="1" Step="0.01" Color="Color.Primary" />
+        <MudText>Top-P: @ChatUi.Parameters.TopP</MudText>
+        <MudList>
+            <MudTextField @bind-Value="ChatUi.Setup" Label="System Message" Lines="4" Variant="Variant.Outlined" />
+
+            <h4 class="mt-8 md-8">Chat</h4>
+            @foreach (var uiMessage in ChatUi.Messages)
+            {
+                var isUser = uiMessage.Message.Role.Equals("user", StringComparison.OrdinalIgnoreCase);
+                var isAssistant = uiMessage.Message.Role.Equals("assistant", StringComparison.OrdinalIgnoreCase);
+                var listItemClass = isUser ? "justify-content-end" : "justify-content-start";
+
+                <MudListItem Class="@listItemClass">
+                    <div class="@(isUser ? "user-message" : isAssistant ? "assistant-message" : "")">
+                        @if (isUser)
+                        {
+                            <div class="mt-4">
+                                <MudMarkdown Value="@uiMessage.Message.Content" />
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var fragment in uiMessage.Fragments)
+                            {
+                                if (fragment.IsCodeSnippet)
+                                {
+                                    <MudCard Class="mt-4">
+                                        <MudCardHeader Class="m-0 p-0">
+                                            <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; padding: 4px;">
+                                                <div class="header-left ml-8">
+                                                    <MudText Typo="Typo.h6">@fragment.Language</MudText>
+                                                </div>
+                                                <div class="header-right">
+                                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => CopyToClipboard(fragment.Content))">
+                                                        <MudIcon Icon="Icons.Material.Filled.ContentCopy" />
+                                                        <span>Copy code</span>
+                                                    </MudButton>
+                                                </div>
+                                            </div>
+                                        </MudCardHeader>
+                                        <div class="card-content-container">
+                                            <MudCardContent>
+                                                <pre class="code-snippet p-4 m-0">@fragment.Content</pre>
+                                            </MudCardContent>
+                                        </div>
+                                    </MudCard>
+                                }
+                                else
+                                {
+                                    <div class="mt-4">
+                                        <MudMarkdown Value="@fragment.Content" />
+                                    </div>
+                                }
+                            }
+                        }
+                    </div>
+                </MudListItem>
+            }
+        </MudList>
+    </MudPaper>
+    <MudPaper Elevation="1" Class="p-3" Style="max-width: 800px; margin: auto;">
+        <MudTextField @bind-Value="UserInput"
+                      Disabled="@IsLoading"
+                      Immediate="true"
+                      Label="User Input" Lines="4" Variant="Variant.Outlined"
+                      Placeholder="Type your message here..."
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@Icons.Material.Filled.Send"
+                      OnAdornmentClick="SendMessage"
+                      Style="max-width: 800px;"
+                      AdornmentColor="Color.Primary"
+                      OnKeyDown="@(e => HandleKeyDown(e))" />
+        @if (IsLoading)
+        {
+            <MudText>Calling API, Wait for the answer</MudText>
+        }
+    </MudPaper>
+
+</MudContainer>
+
+<style>
+    .user-message, .assistant-message {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .card-content-container {
+        position: relative;
+    }
+
+
+
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #f5f5f5;
+        width: 100%;
+    }
+
+    .header-left {
+        flex-grow: 1;
+    }
+
+    .header-right {
+        flex-grow: 0;
+    }
+
+    .user-message {
+        background-color: #e0f7fa;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 10px;
+    }
+
+    .assistant-message {
+        background-color: #f1f1f1;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 10px;
+    }
+
+    .code-snippet {
+        background-color: black;
+        color: white;
+        font-family: 'Courier New', Courier, monospace;
+    }
+
+    .markdown {
+        margin-bottom: 1rem;
+    }
+</style>
+
+
+@code {
+    private ChatUi ChatUi;
+    public string Description { get; set; } = "A Chat";
+    public string UserInput { get; set; } = "";
+    public bool IsLoading { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "id")]
+    public string Id { get; set; }
+
+    public Chat()
+    {
+        //var sampleAnswer = File.ReadAllText("SampleData/SampleAnswer.txt");
+        //Messages.Add(new UiMessage(new Message { Role = "system", Content = sampleAnswer }));
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        if (!String.IsNullOrEmpty(Id))
+        {
+            var db = _dbFactory.CreateDb<ChatUi>();
+            ChatUi = db.Load(Id) ?? new ChatUi();
+        }
+        else
+        {
+            Id = Guid.NewGuid().ToString();
+            Description = "A Chat";
+            ChatUi = new();
+        }
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.CtrlKey && e.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+
+    public async Task SendMessage()
+    {
+        if (!string.IsNullOrWhiteSpace(UserInput) && !IsLoading)
+        {
+            IsLoading = true;
+            var userMessage = new Message { Role = "user", Content = UserInput };
+            var dataToSend = new[]
+            {
+                new Message { Role = "system", Content = ChatUi.Setup }
+    }.Union(ChatUi.Messages.Select(m => m.Message))
+            .Union(new[] { userMessage })
+            .ToList();
+
+            var payload = new ApiPayload
+                {
+                    Messages = dataToSend,
+                    MaxTokens = ChatUi.Parameters.MaxResponse,
+                    Temperature = ChatUi.Parameters.Temperature,
+                    TopP = ChatUi.Parameters.TopP,
+                    FrequencyPenalty = 0,
+                    PresencePenalty = 0,
+                    Stop = null
+                };
+
+            var response = await ChatClient.SendMessageAsync(payload);
+            ChatUi.Messages.Add(new UiMessage(userMessage));
+            ChatUi.Messages.Add(new UiMessage(response));
+
+            UserInput = "";
+            IsLoading = false;
+            Save();
+        }
+    }
+
+    private void ToggleFavorite()
+    {
+        ChatUi.Favorited = !ChatUi.Favorited;
+        Save();
+    }
+
+    private void Save()
+    {
+        var db = _dbFactory.CreateDb<ChatUi>();
+        db.Save(Id, Description, ChatUi);
+    }
+
+    private async void HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+}
