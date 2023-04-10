@@ -53,11 +53,11 @@
             .ToList();
     }
 
-    private void OnKeyDown(KeyboardEventArgs e)
+    private async Task OnKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
-            Search();
+            await Search();
         }
     }
 
