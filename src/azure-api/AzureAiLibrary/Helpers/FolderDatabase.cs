@@ -28,7 +28,7 @@ namespace AzureAiLibrary.Helpers
             File.WriteAllText(filePath, JsonSerializer.Serialize(chatUiEntry));
         }
 
-        public T Load(string id)
+        public DatabaseEntry Load(string id)
         {
             var filePath = Path.Combine(_databaseFolder, id + ".json");
             if (!File.Exists(filePath))
@@ -37,7 +37,7 @@ namespace AzureAiLibrary.Helpers
             }
 
             var chatUiEntry = JsonSerializer.Deserialize<DatabaseEntry>(File.ReadAllText(filePath));
-            return chatUiEntry.Record;
+            return chatUiEntry;
         }
 
         public List<DatabaseEntry> Search(string searchText)
