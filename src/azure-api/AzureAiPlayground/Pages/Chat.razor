@@ -187,7 +187,9 @@
         if (!String.IsNullOrEmpty(Id))
         {
             var db = _dbFactory.CreateDb<ChatUi>();
-            ChatUi = db.Load(Id) ?? new ChatUi();
+            var dbEntry = db.Load(Id);
+            ChatUi = dbEntry.Record ?? new ChatUi();
+            Description = dbEntry.Description;
         }
         else
         {
