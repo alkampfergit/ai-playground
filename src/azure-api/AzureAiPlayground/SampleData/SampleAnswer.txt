@@ -1,0 +1,112 @@
+﻿For the server-side code, let's create a model and a parser to process the API response. First, create a `TextFragment` class with the following properties:
+
+```csharp
+public class TextFragment
+{
+    public string Content { get; set; }
+    public bool IsCode { get; set; }
+}
+```
+
+Next, create a **parser method** to process the API response:
+
+```csharp
+public List<TextFragment> ParseApiResponse(string response)
+{
+    var fragments = new List<TextFragment>();
+    var lines = response.Split('\n');
+    bool isCode = false;
+
+    StringBuilder sb = new StringBuilder();
+    foreach (var line in lines)
+    {
+        if (line.StartsWith("```"))
+        {
+            if (isCode)
+            {
+                fragments.Add(new TextFragment { Content = sb.ToString(), IsCode = true });
+                sb.Clear();
+            }
+            else
+            {
+                fragments.Add(new TextFragment { Content = sb.ToString(), IsCode = false });
+                sb.Clear();
+            }
+            isCode = !isCode;
+        }
+        else
+        {
+            sb.AppendLine(line);
+        }
+    }
+
+    if (sb.Length > 0)
+    {
+        fragments.Add(new TextFragment { Content = sb.ToString(), IsCode = false });
+    }
+
+    return fragments;
+}
+```
+
+Now, let's create the Blazor UI using MudBlazor components. First, install MudBlazor in your project by following the [official guide](https://mudblazor.com/getting-started/installation).
+
+Next, create a Razor component `TextRenderer.razor`:
+
+```html
+@using MudBlazor
+@inject IJSRuntime JSRuntime
+
+@if (Fragments != null)
+{
+    @foreach (var fragment in Fragments)
+    {
+        if (fragment.IsCode)
+        {
+            <MudPaper Class="p-4 mb-4" Elevation="1" Style="background-color: #f5f5f5; white-space: pre-wrap;">
+                <MudText Typo="Typo.body1">@fragment.Content</MudText>
+                <MudButton Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small" OnClick="@(async () => await CopyToClipboard(fragment.Content))">Copy</MudButton>
+            </MudPaper>
+        }
+        else
+        {
+            <MudText Typo="Typo.body1" Style="white-space: pre-wrap;">@fragment.Content</MudText>
+        }
+    }
+}
+
+@code {
+    [Parameter] public List<TextFragment> Fragments { get; set; }
+
+    private async Task CopyToClipboard(string content)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", content);
+    }
+}
+```
+
+Finally, use the `TextRenderer` component in your main page:
+
+```html
+@page "/"
+@using YourNamespace.Models
+@inject HttpClient Http
+
+<MudContainer>
+    <TextRenderer Fragments="Fragments" />
+</MudContainer>
+
+@code {
+    private List<TextFragment> Fragments { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await Http.GetStringAsync("https://your-api-url.com");
+        Fragments = ParseApiResponse(response);
+    }
+
+    // Add the ParseApiResponse method here
+}
+```
+
+Replace `YourNamespace.Models` with the correct namespace and update the API URL. This implementation will render text fragments and code snippets in separate boxes with a copy button for each code snippet.

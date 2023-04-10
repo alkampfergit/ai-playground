@@ -1,0 +1,78 @@
+﻿@page "/chatSearch"
+@using AzureAiLibrary.Helpers;
+@using AzureAiPlayground.Data;
+@using AzureAiPlayground.Support;
+@using MudBlazor
+@using System.Linq;
+@inject FolderDatabaseFactory _dbFactory
+
+<MudContainer Style="max-width: 800px; margin: auto;">
+    <MudTextField Label="Search"
+                  @bind-Value="@searchQuery"
+                  Immediate="true"
+                  Adornment="Adornment.End"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  OnAdornmentClick="@Search"
+                  OnKeyDown="@OnKeyDown" />
+
+
+    <MudTable Items="@searchResults" Hover="true" Breakpoint="Breakpoint.Sm" Striped="true" Style="max-width: 800px; margin: auto;">
+        <HeaderContent>
+            <MudTh>Description</MudTh>
+        </HeaderContent>
+        <RowTemplate Context="item">
+            <MudTd>
+                <MudLink Href="@($"/Chat?id={item.Id}")">@item.Description</MudLink>
+            </MudTd>
+            <MudIcon Icon="@(item.Favorited ? Icons.Material.Filled.Favorite : Icons.Material.Filled.FavoriteBorder)"
+                     Color="@(item.Favorited ? Color.Primary : Color.Default)"
+                     Size="Size.Medium"/>
+        </RowTemplate>
+    </MudTable>
+</MudContainer>
+@code {
+    private string searchQuery = string.Empty;
+    private List<Item> searchResults = new List<Item>();
+    private FolderDatabase<ChatUi> _db;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _db = _dbFactory.CreateDb<ChatUi>();
+        searchResults = _db.List()
+            .OrderBy(i => i.Record.Favorited)
+            .ThenByDescending(i => i.LastModified)
+            .Select(c => new Item(c.Id, c.Description, c.Record.Favorited))
+            .ToList();
+    }
+
+    private async Task Search()
+    {
+        searchResults = _db.Search(searchQuery)
+            .Select(t => new Item(t.Id, t.Description, t.Record.Favorited))
+            .ToList();
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            Search();
+        }
+    }
+
+    public class Item
+    {
+        public Item(string id, string description, bool favorited)
+        {
+            Id = id;
+            Description = description;
+            Favorited = favorited;
+        }
+
+        public string Id { get; set; }
+        public string Description { get; set; }
+        public Boolean Favorited { get; set; }
+    }
+}
+
