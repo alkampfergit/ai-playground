@@ -1,2 +1,2 @@
-global using Xunit;
 global using AzureAiLibrary;
+global using Xunit;

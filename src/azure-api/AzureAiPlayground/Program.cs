@@ -1,5 +1,7 @@
 using AzureAiLibrary;
+using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Helpers;
+using AzureAiPlayground.Pages.ViewModels;
 using AzureAiPlayground.Support;
 using MudBlazor;
 using MudBlazor.Services;
@@ -15,6 +17,9 @@ builder.Services.AddMudServices();
 builder.Services.AddMudMarkdownServices();
 
 builder.Services.AddSingleton<FolderDatabaseFactory>();
+builder.Services.AddSingleton<TemplateHelper>();
+builder.Services.AddSingleton<ITemplateManager, DefaultTemplateManager>();
+builder.Services.AddTransient<ChatViewModel>();
 
 builder.Services.AddHttpClient("ChatClient", client =>
 {
@@ -28,6 +33,13 @@ builder.Services.AddTransient(provider =>
     return new ChatClient(httpClientFactory);
 });
 
+//builder.Services.AddSwaggerGen(c =>
+//{
+//    c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+//});
+
+builder.Services.AddMvcCore();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -38,7 +50,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
@@ -47,5 +59,15 @@ app.UseRouting();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
-app.Run();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+});
 
+//app.UseSwagger();
+//app.UseSwaggerUI(c =>
+//{
+//    c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
+//});
+
+app.Run();
