@@ -1,4 +1,5 @@
-﻿using AzureAiLibrary.Helpers;
+﻿using AzureAiLibrary.Configuration;
+using AzureAiLibrary.Helpers;
 using Microsoft.Extensions.Options;
 
 namespace AzureAiPlayground.Support

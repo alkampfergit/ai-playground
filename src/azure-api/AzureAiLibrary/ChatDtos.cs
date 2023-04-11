@@ -5,7 +5,33 @@ namespace AzureAiLibrary;
 
 public class Message
 {
-	[JsonPropertyName("role")]
+    public Message(string role, string content)
+    {
+        Role = role;
+        Content = content;
+    }
+
+    [JsonConstructor]
+    public Message()
+    {
+    }
+
+    public static Message CreateSystemMessage(string message) 
+    {
+        return new Message("system", message);
+    }
+
+    public static Message CreateAssistantMessage(string message)
+    {
+        return new Message("assistant", message);
+    }
+
+    public static Message CreateUserMessage(string message)
+    {
+        return new Message("user", message);
+    }
+
+    [JsonPropertyName("role")]
 	public string Role { get; set; }
 
 	[JsonPropertyName("content")]

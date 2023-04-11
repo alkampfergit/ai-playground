@@ -28,6 +28,12 @@ namespace AzureAiLibrary.Helpers
             File.WriteAllText(filePath, JsonSerializer.Serialize(chatUiEntry));
         }
 
+        public void Delete(string id)
+        {
+            var filePath = Path.Combine(_databaseFolder, id + ".json");
+            if (File.Exists(filePath)) File.Delete(filePath);
+        }
+
         public DatabaseEntry Load(string id)
         {
             var filePath = Path.Combine(_databaseFolder, id + ".json");

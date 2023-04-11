@@ -1,10 +1,10 @@
 @page "/chat"
 @using AzureAiLibrary;
+@using AzureAiLibrary.Helpers;
 @using AzureAiPlayground.Data;
+@using AzureAiPlayground.Pages.ViewModels;
 @using AzureAiPlayground.Support;
 @inject IJSRuntime JSRuntime
-@inject ChatClient ChatClient
-@inject FolderDatabaseFactory _dbFactory;
 @inject NavigationManager _navManager;
 
 <h3>AI Chat</h3>
@@ -15,30 +15,40 @@
         <MudGrid>
             <MudItem xs="12" sm="1" md="1">
                 <MudContainer Style="height: 100%; width: 100%" AlignItems="AlignItems.Center">
-                    <MudIcon Icon="@(ChatUi.Favorited ? Icons.Material.Filled.Favorite : Icons.Material.Filled.FavoriteBorder)"
+                    <MudIcon Icon="@(ViewModel.ChatUi.Favorited ? Icons.Material.Filled.Favorite : Icons.Material.Filled.FavoriteBorder)"
                              Style="cursor:pointer;"
-                             Color="@(ChatUi.Favorited ? Color.Primary : Color.Default)"
+                             Color="@(ViewModel.ChatUi.Favorited ? Color.Primary : Color.Default)"
                              Size="Size.Medium"
-                             @onclick="ToggleFavorite" />
+                    @onclick="ViewModel.ToggleFavorite" />
                 </MudContainer>
             </MudItem>
-            <MudItem xs="12" sm="11" md="11">
-                <MudTextField @bind-Value="@Description" Label="Chat Description" />
+            <MudItem xs="12" sm="7" md="7">
+                <MudTextField @bind-Value="@ViewModel.Description" Label="Chat Description" />
+            </MudItem>
+            <MudItem xs="12" sm="2" md="2">
+                <MudContainer Style="height: 100%; width: 100%" AlignItems="AlignItems.Center">
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@ViewModel.Save">Save</MudButton>
+                </MudContainer>
+            </MudItem>
+            <MudItem xs="12" sm="2" md="2">
+                <MudContainer Style="height: 100%; width: 100%" AlignItems="AlignItems.Center">
+                    <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="@ViewModel.Delete">Delete</MudButton>
+                </MudContainer>
             </MudItem>
         </MudGrid>
 
-        <MudTextField @bind-Value="@ChatUi.Parameters.MaxResponse" Label="Max Response" InputType="InputType.Number" />
+        <MudTextField @bind-Value="@ViewModel.ChatUi.Parameters.MaxResponse" Label="Max Response" InputType="InputType.Number" />
 
-        <MudSlider @bind-Value="@ChatUi.Parameters.Temperature" Min="0" Max="1" Step="0.01" Color="Color.Primary" />
-        <MudText>Temperature: @ChatUi.Parameters.Temperature</MudText>
+        <MudSlider @bind-Value="@ViewModel.ChatUi.Parameters.Temperature" Min="0" Max="1" Step="0.01" Color="Color.Primary" />
+        <MudText>Temperature: @ViewModel.ChatUi.Parameters.Temperature</MudText>
 
-        <MudSlider @bind-Value="@ChatUi.Parameters.TopP" Min="0" Max="1" Step="0.01" Color="Color.Primary" />
-        <MudText>Top-P: @ChatUi.Parameters.TopP</MudText>
+        <MudSlider @bind-Value="@ViewModel.ChatUi.Parameters.TopP" Min="0" Max="1" Step="0.01" Color="Color.Primary" />
+        <MudText>Top-P: @ViewModel.ChatUi.Parameters.TopP</MudText>
         <MudList>
-            <MudTextField @bind-Value="ChatUi.Setup" Label="System Message" Lines="4" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="ViewModel.ChatUi.Setup" Label="System Message" Lines="4" Variant="Variant.Outlined" />
 
             <h4 class="mt-8 md-8">Chat</h4>
-            @foreach (var uiMessage in ChatUi.Messages)
+            @foreach (var uiMessage in ViewModel.ChatUi.Messages)
             {
                 var isUser = uiMessage.Message.Role.Equals("user", StringComparison.OrdinalIgnoreCase);
                 var isAssistant = uiMessage.Message.Role.Equals("assistant", StringComparison.OrdinalIgnoreCase);
@@ -93,18 +103,18 @@
         </MudList>
     </MudPaper>
     <MudPaper Elevation="1" Class="p-3" Style="max-width: 800px; margin: auto;">
-        <MudTextField @bind-Value="UserInput"
-                      Disabled="@IsLoading"
+        <MudTextField @bind-Value="ViewModel.UserInput"
+                      Disabled="@ViewModel.IsLoading"
                       Immediate="true"
                       Label="User Input" Lines="4" Variant="Variant.Outlined"
                       Placeholder="Type your message here..."
                       Adornment="Adornment.End"
                       AdornmentIcon="@Icons.Material.Filled.Send"
-                      OnAdornmentClick="SendMessage"
+                      OnAdornmentClick="ViewModel.SendMessage"
                       Style="max-width: 800px;"
                       AdornmentColor="Color.Primary"
                       OnKeyDown="@(e => HandleKeyDown(e))" />
-        @if (IsLoading)
+        @if (ViewModel.IsLoading)
         {
             <MudText>Calling API, Wait for the answer</MudText>
         }
@@ -164,39 +174,18 @@
     }
 </style>
 
-
 @code {
-    private ChatUi ChatUi;
-    public string Description { get; set; } = "A Chat";
-    public string UserInput { get; set; } = "";
-    public bool IsLoading { get; set; }
-
     [Parameter]
     [SupplyParameterFromQuery(Name = "id")]
     public string Id { get; set; }
 
-    public Chat()
-    {
-        //var sampleAnswer = File.ReadAllText("SampleData/SampleAnswer.txt");
-        //Messages.Add(new UiMessage(new Message { Role = "system", Content = sampleAnswer }));
-    }
+    [Inject]
+    public ChatViewModel ViewModel { get; set; }
 
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        if (!String.IsNullOrEmpty(Id))
-        {
-            var db = _dbFactory.CreateDb<ChatUi>();
-            var dbEntry = db.Load(Id);
-            ChatUi = dbEntry.Record ?? new ChatUi();
-            Description = dbEntry.Description;
-        }
-        else
-        {
-            Id = Guid.NewGuid().ToString();
-            Description = "A Chat";
-            ChatUi = new();
-        }
+        ViewModel.Initialize(Id);
     }
 
     private async Task CopyToClipboard(string text)
@@ -208,61 +197,15 @@
     {
         if (e.CtrlKey && e.Key == "Enter")
         {
-            await SendMessage();
+            await ViewModel.SendMessage();
         }
-    }
-
-    public async Task SendMessage()
-    {
-        if (!string.IsNullOrWhiteSpace(UserInput) && !IsLoading)
-        {
-            IsLoading = true;
-            var userMessage = new Message { Role = "user", Content = UserInput };
-            var dataToSend = new[]
-            {
-                new Message { Role = "system", Content = ChatUi.Setup }
-    }.Union(ChatUi.Messages.Select(m => m.Message))
-            .Union(new[] { userMessage })
-            .ToList();
-
-            var payload = new ApiPayload
-                {
-                    Messages = dataToSend,
-                    MaxTokens = ChatUi.Parameters.MaxResponse,
-                    Temperature = ChatUi.Parameters.Temperature,
-                    TopP = ChatUi.Parameters.TopP,
-                    FrequencyPenalty = 0,
-                    PresencePenalty = 0,
-                    Stop = null
-                };
-
-            var response = await ChatClient.SendMessageAsync(payload);
-            ChatUi.Messages.Add(new UiMessage(userMessage));
-            ChatUi.Messages.Add(new UiMessage(response));
-
-            UserInput = "";
-            IsLoading = false;
-            Save();
-        }
-    }
-
-    private void ToggleFavorite()
-    {
-        ChatUi.Favorited = !ChatUi.Favorited;
-        Save();
-    }
-
-    private void Save()
-    {
-        var db = _dbFactory.CreateDb<ChatUi>();
-        db.Save(Id, Description, ChatUi);
     }
 
     private async void HandleKeyPress(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
-            await SendMessage();
+            await ViewModel.SendMessage();
         }
     }
 }

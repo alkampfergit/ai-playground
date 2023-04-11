@@ -28,8 +28,8 @@
             _database.Save("1", "Test Object 1", sampleObject);
 
             var loadedObject = _database.Load("1");
-            Assert.Equal(sampleObject.Id, loadedObject.Id);
-            Assert.Equal(sampleObject.Name, loadedObject.Name);
+            Assert.Equal(sampleObject.Id, loadedObject.Record.Id);
+            Assert.Equal(sampleObject.Name, loadedObject.Record.Name);
         }
 
         [Fact]
