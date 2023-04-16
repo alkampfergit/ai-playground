@@ -27,4 +27,13 @@
     <ProjectReference Include="..\AzureAiLibrary\AzureAiLibrary.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="TestData\Totc_2.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\Totc_1.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

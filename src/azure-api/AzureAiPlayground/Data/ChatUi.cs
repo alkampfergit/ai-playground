@@ -18,7 +18,7 @@ namespace AzureAiPlayground.Data
 
         public Parameters  Parameters { get; set; }
 
-        public List<UiMessage> Messages { get; set; }
+        public List<MessageWithFragments> Messages { get; set; }
 
         public string Setup { get; set; }
 

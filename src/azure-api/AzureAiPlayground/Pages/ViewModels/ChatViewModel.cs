@@ -81,8 +81,8 @@
                 };
 
                 var response = await _chatClient.SendMessageAsync(payload);
-                ChatUi.Messages.Add(new UiMessage(userMessage));
-                ChatUi.Messages.Add(new UiMessage(response));
+                ChatUi.Messages.Add(new MessageWithFragments(userMessage));
+                ChatUi.Messages.Add(new MessageWithFragments(response));
 
                 UserInput = "";
                 IsLoading = false;
