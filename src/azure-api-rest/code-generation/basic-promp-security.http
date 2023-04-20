@@ -1,0 +1,30 @@
+POST {{BaseUrl}}
+api-key: {{$processEnv AI_KEY}}
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an AI assistant that helps people find information."
+    },
+    {
+      "role": "user",
+      "content": "You are a top of the class C# programmer with a strong background in cryptography and computer security.\nYou will receive specification for a software that must be written in C# and .NET core in a Windows operating system.\nProceeds in steps. \nYou will answer with a general brief explanation of implementation choiches.\nThen finish the answer with shell commands to initialize solution and project structure as well as all the nuget install commands. Specify the version of the framework you want to use in the dotnet new command. Finally complete the answer with the numbered list of files to implement the software.\nWait for a seres of \"file X\" commands where X is the number of the file. \nYou will answer with a line containing full path of the file relative to base directory, followed by entire file content. If a file already exists you will give the entire new content. No comments are required.\n\nSpecifications\n\"\"\"\nA .NET library to easy working with cryptographyc .NET core primitives. We need methods to manage key: Create Update Load Deleted for both AES and RSA. We need helpers to encrypt dectyps streams as well encrypt decrypt plain string to encrypted string and vice versa. We need code to manage keys in a local folder as well as with Azure Key Vault for increase security.\n\"\"\""
+    },
+    {
+      "role": "assistant",
+      "content": "To implement the software, we will create a .NET core class library project. We will use the C# programming language and the .NET core framework. We will use the Azure Key Vault SDK to interact with Azure Key Vault. For data serialization, we will use Newtonsoft.Json.\n\nTo initialize the solution and project structure, run the following commands in the command prompt or terminal:\n\n```\ndotnet new sln -n CryptoLibrary\ndotnet new classlib -n CryptoLibrary -f netcoreapp3.1\ndotnet sln add CryptoLibrary\n```\n\nTo install the required NuGet packages, run the following commands:\n\n```\ndotnet add CryptoLibrary package Microsoft.Azure.KeyVault\ndotnet add CryptoLibrary package Microsoft.Azure.Services.AppAuthentication\ndotnet add CryptoLibrary package Newtonsoft.Json\n```\n\nThe numbered list of files to implement the software:\n\n1. CryptoKey.cs\n2. CryptoKeyManager.cs\n3. CryptoStream.cs\n4. CryptoString.cs\n5. CryptoKeyVault.cs\n\nPlease provide the \"file X\" commands to receive the file content."
+    },
+    {
+        "role" : "user",
+        "content" : "File 1"
+    }
+  ],
+  "temperature": 0.7,
+  "top_p": 0.95,
+  "frequency_penalty": 0,
+  "presence_penalty": 0,
+  "max_tokens": 1500,
+  "stop": null
+}
