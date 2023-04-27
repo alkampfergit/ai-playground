@@ -8,7 +8,8 @@ using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.ConfigureSetting<ChatConfig>(builder.Configuration, "chatConfig");
+var chatConfig = builder.Services.ConfigureSetting<ChatConfig>(builder.Configuration, "chatConfig");
+var azureOpenAiConfiguration = builder.Services.ConfigureSetting<AzureOpenAiConfiguration>(builder.Configuration, "AzureOpenAiConfiguration");
 
 // Add services to the container.
 builder.Services.AddRazorPages();
@@ -27,11 +28,12 @@ builder.Services.AddHttpClient("ChatClient", client =>
     client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
 });
 
-builder.Services.AddTransient(provider =>
-{
-    var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-    return new ChatClient(httpClientFactory);
-});
+builder.Services.AddTransient<ChatClient>();
+//builder.Services.AddTransient(provider =>
+//{
+//    var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
+//    return new ChatClient(httpClientFactory);
+//});
 
 //builder.Services.AddSwaggerGen(c =>
 //{

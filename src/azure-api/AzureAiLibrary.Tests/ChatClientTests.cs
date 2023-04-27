@@ -1,3 +1,5 @@
+using AzureAiLibrary.Configuration;
+using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
 using System.Net;
@@ -30,9 +32,9 @@ public class ChatClientTests
             BaseAddress = new Uri("https://your-base-api-url.com/")
         };
         httpClientFactoryMock.Setup(_ => _.CreateClient(It.IsAny<string>())).Returns(httpClient);
+        var azureConfigMock = new Mock<IOptionsMonitor<AzureOpenAiConfiguration>>();
 
-
-        var chatClient = new ChatClient(httpClientFactoryMock.Object);
+        var chatClient = new ChatClient(azureConfigMock.Object, httpClientFactoryMock.Object);
 
         var messages = new List<Message>
         {
@@ -81,7 +83,9 @@ public class ChatClientTests
         {
             BaseAddress = new Uri("https://your-base-api-url.com/")
         };
-        httpClientFactoryMock.Setup(_ => _.CreateClient(It.IsAny<string>())).Returns(httpClient); var chatClient = new ChatClient(httpClientFactoryMock.Object);
+        var azureConfigMock = new Mock<IOptionsMonitor<AzureOpenAiConfiguration>>();
+        var chatClient = new ChatClient(azureConfigMock.Object, httpClientFactoryMock.Object);
+        httpClientFactoryMock.Setup(_ => _.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var messages = new List<Message>
         {
