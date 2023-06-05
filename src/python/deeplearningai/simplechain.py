@@ -5,6 +5,14 @@ from dotenv import load_dotenv, find_dotenv
 from langchain.prompts import ChatPromptTemplate
 from pprint import pprint
 
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-c', '--content', help='Content of customer email')
+args = parser.parse_args()
+
+pprint (args)
+
 _ = load_dotenv(find_dotenv()) # read local .env file
 
 openai.api_type = "azure"
@@ -32,18 +40,18 @@ customer_style = """American English \
 in a calm and respectful tone
 """
 
-customer_email = """
-Arrr, I be fuming that me blender lid \
-flew off and splattered me kitchen walls \
-with smoothie! And to make matters worse, \
-the warranty don't cover the cost of \
-cleaning up me kitchen. I need yer help \
-right now, matey!
-"""
+# customer_email = """
+# Arrr, I be fuming that me blender lid \
+# flew off and splattered me kitchen walls \
+# with smoothie! And to make matters worse, \
+# the warranty don't cover the cost of \
+# cleaning up me kitchen. I need yer help \
+# right now, matey!
+# """
 
 customer_messages = prompt_template.format_messages(
                     style=customer_style,
-                    text=customer_email)
+                    text=args.content)
 
 customer_response = chat(customer_messages)
 

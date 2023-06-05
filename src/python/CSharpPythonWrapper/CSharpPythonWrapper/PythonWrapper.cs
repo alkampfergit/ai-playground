@@ -3,13 +3,14 @@ using System.Diagnostics;
 
 public class PythonWrapper
 {
-    public string Execute(string scriptPath)
+    public string Execute(string scriptPath, string arguments = "")
     {
         string python3location = "/workspaces/ai-playground/src/python/deeplearningai/deep/bin/python3";
 
         ProcessStartInfo start = new ProcessStartInfo();
         start.FileName = python3location;
-        start.Arguments = scriptPath;
+        start.Arguments = $"{scriptPath} {arguments}"; // Add the arguments to the command line
+        
         start.UseShellExecute = false;
         start.RedirectStandardOutput = true;
 
