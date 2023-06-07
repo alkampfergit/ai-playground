@@ -12,6 +12,20 @@ Now install all pip modules you need
 ```bash
 pip install openai
 pip install langchain
+pip install matplotlib
+pip install plotly
+```
+
+Actually you can install everything with.
+
+```bash
+pip install -r requirements.txt
+```
+
+If you install other packages update requirements.txt with
+
+```bash
+pip freeze > requirements.txt
 ```
 
 Then I want to use the current environment as kernel for jupyter notebook
