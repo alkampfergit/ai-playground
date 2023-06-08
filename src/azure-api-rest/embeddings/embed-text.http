@@ -1,0 +1,32 @@
+POST {{embeddingsUrl}}
+api-key: {{$processEnv AI_KEY}}
+Content-Type: application/json
+
+{
+    "input" : "lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+}
+
+
+###
+# This is used to ask for transaltion in latent space with davinci model.
+POST {{embeddingsSimilarityAda}}
+api-key: {{$processEnv AI_KEY}}
+Content-Type: application/json
+
+{
+    "input" : "lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+}
+
+###
+# This is used to ask for transaltion in latent space with davinci model.
+POST {{embeddingsSimilarityCurie}}
+api-key: {{$processEnv AI_KEY}}
+Content-Type: application/json
+
+{
+    "input" : "lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+}
+
+# Reference
+# https://learn.microsoft.com/en-us/azure/cognitive-services/openai/reference
+# https://learn.microsoft.com/en-us/azure/cognitive-services/openai/concepts/models#embeddings-models
