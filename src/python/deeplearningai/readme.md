@@ -52,3 +52,18 @@ OPENAI_API_KEY=xxxxxx
 OPENAI_API_BASE=https://alkopenai.openai.azure.com/
 ```
 
+You neeed to instruct openai library that you are using azure api
+
+```python
+import openai
+
+openai.api_type = "azure"
+openai.api_version = "2023-03-15-preview"
+```
+
+When you create chat object you have a specific chat object dedicated to azure openai 
+
+
+```python
+chat = AzureChatOpenAI(deployment_name="gpt35", openai_api_version="2023-03-15-preview")
+```
