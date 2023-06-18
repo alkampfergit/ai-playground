@@ -12,6 +12,7 @@
 
 **/deep
 **/myenv
+**/langchain
 .env
 
 # User-specific files (MonoDevelop/Xamarin Studio)
