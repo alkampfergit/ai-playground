@@ -65,5 +65,6 @@ When you create chat object you have a specific chat object dedicated to azure o
 
 
 ```python
+from langchain.chat_models import AzureChatOpenAI
 chat = AzureChatOpenAI(deployment_name="gpt35", openai_api_version="2023-03-15-preview")
 ```
