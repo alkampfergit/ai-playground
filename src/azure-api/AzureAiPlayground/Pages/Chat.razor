@@ -194,7 +194,7 @@
     {
         base.OnInitialized();
         ViewModel.Initialize(Id);
-        ViewModel.ContentChanged += (_, _) => StateHasChanged();
+        ViewModel.ContentChanged += (_, _) => InvokeAsync(StateHasChanged);
     }
 
     private async Task CopyToClipboard(string text)

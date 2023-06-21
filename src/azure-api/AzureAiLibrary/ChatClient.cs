@@ -46,7 +46,7 @@ public class ChatClient
             deploymentOrModelName: endpoint.Name,
             options);
         
-        using StreamingChatCompletions streamingChatCompletions = response.Value;
+        StreamingChatCompletions streamingChatCompletions = response.Value;
         return new Message(streamingChatCompletions);
     }
 

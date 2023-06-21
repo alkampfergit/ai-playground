@@ -101,8 +101,8 @@ namespace AzureAiPlayground.Pages.ViewModels
                     Stop = null
                 };
 
-                //var response = await _chatClient.SendMessageStreamingAsync(SelectedEndpoint.Name, payload);
-                var response = await _chatClient.SendMessageAsync(SelectedEndpoint.Name, payload);
+                var response = await _chatClient.SendMessageStreamingAsync(SelectedEndpoint.Name, payload);
+                //var response = await _chatClient.SendMessageAsync(SelectedEndpoint.Name, payload);
                 ChatUi.Messages.Add(new UiMessage(userMessage));
                 var responseMessage = new UiMessage(response);
                 responseMessage.ContentChanged += (s, e) => OnContentChanged();
