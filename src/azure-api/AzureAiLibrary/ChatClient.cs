@@ -2,6 +2,8 @@ using AzureAiLibrary.Configuration;
 using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
+using Azure;
+using Azure.AI.OpenAI;
 
 namespace AzureAiLibrary;
 
@@ -16,6 +18,36 @@ public class ChatClient
     {
         _azureConfig = azureConfig;
         _httpClientFactory = httpClientFactory;
+    }
+
+    public async Task<Message> SendMessageStreamingAsync(
+        string deployName,
+        ApiPayload chatRequest)
+    {
+        var endpoint = _azureConfig.CurrentValue.GetEndpoint(deployName);
+
+        OpenAIClient client = new OpenAIClient(
+            new Uri("https://alkopenai.openai.azure.com/"),
+            new AzureKeyCredential(Environment.GetEnvironmentVariable("AI_KEY")));
+
+        var options = new ChatCompletionsOptions();
+        foreach (var message in chatRequest.Messages)
+        {
+            options.Messages.Add(new ChatMessage(message.GetChatRole(), message.Content));
+        }
+
+        options.Temperature = (float?) chatRequest.Temperature;
+        options.MaxTokens = chatRequest.MaxTokens;
+        options.FrequencyPenalty = chatRequest.PresencePenalty;
+        options.PresencePenalty = chatRequest.PresencePenalty;
+        
+        // ### If streaming is selected
+        Response<StreamingChatCompletions> response = await client.GetChatCompletionsStreamingAsync(
+            deploymentOrModelName: endpoint.Name,
+            options);
+        
+        using StreamingChatCompletions streamingChatCompletions = response.Value;
+        return new Message(streamingChatCompletions);
     }
 
     public async Task<Message> SendMessageAsync(

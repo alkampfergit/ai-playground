@@ -44,6 +44,13 @@ namespace AzureAiPlayground.Pages.ViewModels
             Endpoints = azureOpenAiConfiguration.CurrentValue.Endpoints;
             SelectedEndpoint = azureOpenAiConfiguration.CurrentValue.GetDefaultEndpoint();
         }
+        
+        public event EventHandler ContentChanged;
+
+        public void OnContentChanged()
+        {
+            ContentChanged?.Invoke(this, EventArgs.Empty);
+        }
 
         internal void Initialize(string id)
         {
@@ -94,9 +101,12 @@ namespace AzureAiPlayground.Pages.ViewModels
                     Stop = null
                 };
 
+                //var response = await _chatClient.SendMessageStreamingAsync(SelectedEndpoint.Name, payload);
                 var response = await _chatClient.SendMessageAsync(SelectedEndpoint.Name, payload);
                 ChatUi.Messages.Add(new UiMessage(userMessage));
-                ChatUi.Messages.Add(new UiMessage(response));
+                var responseMessage = new UiMessage(response);
+                responseMessage.ContentChanged += (s, e) => OnContentChanged();
+                ChatUi.Messages.Add(responseMessage);
 
                 UserInput = "";
                 IsLoading = false;
