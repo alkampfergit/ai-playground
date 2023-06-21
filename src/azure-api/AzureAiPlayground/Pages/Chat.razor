@@ -1,5 +1,6 @@
 @page "/chat"
 @using AzureAiLibrary;
+@using AzureAiLibrary.Configuration
 @using AzureAiLibrary.Helpers;
 @using AzureAiPlayground.Data;
 @using AzureAiPlayground.Pages.ViewModels;
@@ -19,7 +20,7 @@
                              Style="cursor:pointer;"
                              Color="@(ViewModel.ChatUi.Favorited ? Color.Primary : Color.Default)"
                              Size="Size.Medium"
-                    @onclick="ViewModel.ToggleFavorite" />
+                             @onclick="ViewModel.ToggleFavorite" />
                 </MudContainer>
             </MudItem>
             <MudItem xs="12" sm="7" md="7">
@@ -44,6 +45,13 @@
 
         <MudSlider @bind-Value="@ViewModel.ChatUi.Parameters.TopP" Min="0" Max="1" Step="0.01" Color="Color.Primary" />
         <MudText>Top-P: @ViewModel.ChatUi.Parameters.TopP</MudText>
+        <MudSelect @bind-Value="ViewModel.SelectedEndpoint" 
+                   Label="Select Model">
+            @foreach (Endpoint endpoint in ViewModel.Endpoints)
+            {
+                <MudSelectItem Value="@endpoint">@endpoint.Name</MudSelectItem>
+            }
+        </MudSelect>
         <MudList>
             <MudTextField @bind-Value="ViewModel.ChatUi.Setup" Label="System Message" Lines="4" Variant="Variant.Outlined" />
 

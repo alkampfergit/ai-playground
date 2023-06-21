@@ -1,4 +1,8 @@
-﻿namespace AzureAiPlayground.Pages.ViewModels
+﻿using AzureAiLibrary.Configuration;
+using Microsoft.Extensions.Options;
+using Endpoint = AzureAiLibrary.Configuration.Endpoint;
+
+namespace AzureAiPlayground.Pages.ViewModels
 {
     using AzureAiLibrary;
     using AzureAiLibrary.Helpers;
@@ -18,17 +22,27 @@
 
         public bool IsLoading { get; set; }
 
+        public IEnumerable<Endpoint> Endpoints { get; private set; }
+
+        public Endpoint SelectedEndpoint { get; set; }
+
         private FolderDatabase<ChatUi> _db;
         private readonly ChatClient _chatClient;
+        private readonly IOptionsMonitor<AzureOpenAiConfiguration> _azureOpenAiConfiguration;
 
         public string Id { get; set; }
 
         public ChatViewModel(
             ChatClient chatClient,
-            FolderDatabaseFactory folderDatabaseFactory)
+            FolderDatabaseFactory folderDatabaseFactory,
+            IOptionsMonitor<AzureOpenAiConfiguration> azureOpenAiConfiguration)
         {
             _db = folderDatabaseFactory.CreateDb<ChatUi>();
             _chatClient = chatClient;
+            _azureOpenAiConfiguration = azureOpenAiConfiguration;
+
+            Endpoints = azureOpenAiConfiguration.CurrentValue.Endpoints;
+            SelectedEndpoint = azureOpenAiConfiguration.CurrentValue.GetDefaultEndpoint();
         }
 
         internal void Initialize(string id)
@@ -80,7 +94,7 @@
                     Stop = null
                 };
 
-                var response = await _chatClient.SendMessageAsync(payload);
+                var response = await _chatClient.SendMessageAsync(SelectedEndpoint.Name, payload);
                 ChatUi.Messages.Add(new UiMessage(userMessage));
                 ChatUi.Messages.Add(new UiMessage(response));
 

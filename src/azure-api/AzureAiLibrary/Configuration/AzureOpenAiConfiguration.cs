@@ -14,8 +14,13 @@
 
         public Endpoint GetDefaultEndpoint()
         {
+            return GetEndpoint(Default) ?? Endpoints[0];
+        }
+
+        public Endpoint? GetEndpoint(string endpointName)
+        {
             return Endpoints
-                .Find(e => e.Name.Equals(Default, StringComparison.OrdinalIgnoreCase)) ?? Endpoints[0];
+                .Find(e => e.Name.Equals(endpointName, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

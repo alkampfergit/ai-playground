@@ -22,11 +22,15 @@ builder.Services.AddSingleton<TemplateHelper>();
 builder.Services.AddSingleton<ITemplateManager, DefaultTemplateManager>();
 builder.Services.AddTransient<ChatViewModel>();
 
-builder.Services.AddHttpClient("ChatClient", client =>
+
+foreach (var config in azureOpenAiConfiguration.Endpoints)
 {
-    client.BaseAddress = new Uri("https://alkopenai.openai.azure.com/");
-    client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
-});
+    builder.Services.AddHttpClient(config.Name, client =>
+    {
+        client.BaseAddress = new Uri("https://alkopenai.openai.azure.com/");
+        client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
+    });
+}
 
 builder.Services.AddTransient<ChatClient>();
 //builder.Services.AddTransient(provider =>

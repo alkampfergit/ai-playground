@@ -18,17 +18,19 @@ public class ChatClient
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task<Message> SendMessageAsync(ApiPayload chatRequest)
+    public async Task<Message> SendMessageAsync(
+        string httpClientName,
+        ApiPayload chatRequest)
     {
         var requestBody = JsonSerializer.Serialize(chatRequest);
-        var endpoint = _azureConfig.CurrentValue.GetDefaultEndpoint();
+        var endpoint = _azureConfig.CurrentValue.GetEndpoint(httpClientName);
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint.Url)
         {
             Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
         };
 
-        var _httpClient = _httpClientFactory.CreateClient("ChatClient");
-        var response = await _httpClient.SendAsync(request);
+        var httpClient = _httpClientFactory.CreateClient(httpClientName);
+        var response = await httpClient.SendAsync(request);
 
         if (!response.IsSuccessStatusCode)
         {

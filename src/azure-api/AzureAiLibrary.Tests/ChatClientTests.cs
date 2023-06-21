@@ -54,7 +54,7 @@ public class ChatClientTests
         };
 
         // Act
-        var response = await chatClient.SendMessageAsync(payload);
+        var response = await chatClient.SendMessageAsync("test", payload);
 
         // Assert
         Assert.Contains("The Lord of the Rings", response.Content);
@@ -105,6 +105,6 @@ public class ChatClientTests
         };
 
         // Act & Assert
-        await Assert.ThrowsAsync<Exception>(async () => await chatClient.SendMessageAsync(payload));
+        await Assert.ThrowsAsync<Exception>(async () => await chatClient.SendMessageAsync("test", payload));
     }
 }
