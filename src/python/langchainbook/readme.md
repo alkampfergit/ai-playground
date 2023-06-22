@@ -2,7 +2,7 @@
 
 You can find the book at [https://www.pinecone.io/learn/langchain-intro/](https://www.pinecone.io/learn/langchain-intro/) this is the folder with code and examples.
 
-Create a local environment with python, then allow the ipykernel to create a kernel for jupyter notebooks
+Create a local environment with python, then allow the ipykernel to create a kernel for jupyter notebooks.
 
 ```bash
 python3 -m venv langchain
