@@ -4,6 +4,7 @@ using AzureAiLibrary.Helpers;
 using AzureAiPlayground.Controllers.Models;
 using AzureAiPlayground.Support;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace AzureAiPlayground.Controllers
 {
@@ -11,7 +12,7 @@ namespace AzureAiPlayground.Controllers
     [Route("/api/chat")]
     public class RawChatController : Controller
     {
-        private readonly AzureOpenAiConfiguration _azureOpenAiConfiguration;
+        private readonly IOptionsMonitor<AzureOpenAiConfiguration> _azureOpenAiConfiguration;
         private readonly TemplateHelper _templateHelper;
         private readonly ChatClient _chatClient;
         private readonly FolderDatabase<ApiPayload> _db;
@@ -20,7 +21,7 @@ namespace AzureAiPlayground.Controllers
             FolderDatabaseFactory folderDatabaseFactory,
             TemplateHelper templateHelper,
             ChatClient chatClient,
-            AzureOpenAiConfiguration azureOpenAiConfiguration)
+            IOptionsMonitor<AzureOpenAiConfiguration> azureOpenAiConfiguration)
         {
             _azureOpenAiConfiguration = azureOpenAiConfiguration;
             _templateHelper = templateHelper;
@@ -47,7 +48,7 @@ namespace AzureAiPlayground.Controllers
                 TopP = 0.95,
                 Stop = null
             };
-            var response = await _chatClient.SendMessageAsync(_azureOpenAiConfiguration.Default, payload);
+            var response = await _chatClient.SendMessageAsync(_azureOpenAiConfiguration.CurrentValue.Default, payload);
 
             return Ok(response.Content);
         }
@@ -71,7 +72,7 @@ namespace AzureAiPlayground.Controllers
                 TopP = 0.95,
                 Stop = null
             };
-            var response = await _chatClient.SendMessageAsync(_azureOpenAiConfiguration.Default, payload);
+            var response = await _chatClient.SendMessageAsync(_azureOpenAiConfiguration.CurrentValue.Default, payload);
 
             return Ok(response.Content);
         }
@@ -137,7 +138,7 @@ namespace AzureAiPlayground.Controllers
 
             var userMessage = Message.CreateUserMessage(dto.UserMessage);
             payload.Messages.Add(userMessage);
-            var response = await _chatClient.SendMessageAsync(_azureOpenAiConfiguration.Default, payload);
+            var response = await _chatClient.SendMessageAsync(_azureOpenAiConfiguration.CurrentValue.Default, payload);
             _db.Save(dto.ChatId, "", payload);
 
             return Ok(response.Content);

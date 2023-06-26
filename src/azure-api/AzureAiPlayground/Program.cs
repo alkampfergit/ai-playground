@@ -27,7 +27,7 @@ foreach (var config in azureOpenAiConfiguration.Endpoints)
 {
     builder.Services.AddHttpClient(config.Name, client =>
     {
-        client.BaseAddress = new Uri("https://alkopenai.openai.azure.com/");
+        client.BaseAddress = new Uri(config.BaseAddress);
         client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
     });
 }
