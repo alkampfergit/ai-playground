@@ -10,9 +10,11 @@
 *.userosscache
 *.sln.docstates
 
+# Some virtual env used in the project
 **/deep
 **/myenv
 **/langchain
+**/deeplearningai
 .env
 
 # User-specific files (MonoDevelop/Xamarin Studio)

@@ -53,6 +53,9 @@ customer_messages = prompt_template.format_messages(
                     style=customer_style,
                     text=args.content)
 
+from pprint import pprint
+pprint(customer_messages)
+
 customer_response = chat(customer_messages)
 
 print(customer_response.content)
