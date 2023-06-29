@@ -297,7 +297,7 @@ tomli @ file:///C:/Windows/TEMP/abs_ac109f85-a7b3-4b4d-bcfd-52622eceddf0hy332ojo
 tomlkit @ file:///C:/Windows/TEMP/abs_3296qo9v6b/croots/recipe/tomlkit_1658946894808/work
 toolz @ file:///C:/b/abs_cfvk6rc40d/croot/toolz_1667464080130/work
 torch==1.12.1
-tornado==6.3
+tornado==6.3.2
 tqdm @ file:///C:/b/abs_0axbz66qik/croots/recipe/tqdm_1664392691071/work
 traitlets==5.9.0
 transformers @ file:///C:/b/abs_8byf5_j714/croot/transformers_1667919454001/work
