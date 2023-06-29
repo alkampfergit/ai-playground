@@ -8,6 +8,9 @@ Create a local environment with python, then allow the ipykernel to create a ker
 python3 -m venv langchain
 source langchain/bin/activate
 
+# For windows you must use the following command to activate the virtual environment
+#  .\langchain\Scripts\activate 
+
 pip install ipykernel
 python -m ipykernel install --user --name=langchain
 ```
