@@ -9,6 +9,7 @@
 *.user
 *.userosscache
 *.sln.docstates
+**/.DS_store
 
 # Some virtual env used in the project
 **/deep
