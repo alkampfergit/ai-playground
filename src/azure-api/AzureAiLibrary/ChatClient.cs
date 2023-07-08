@@ -27,7 +27,7 @@ public class ChatClient
         var endpoint = _azureConfig.CurrentValue.GetEndpoint(deployName);
 
         OpenAIClient client = new OpenAIClient(
-            new Uri("https://alkopenai.openai.azure.com/"),
+            new Uri(endpoint.BaseAddress),
             new AzureKeyCredential(Environment.GetEnvironmentVariable("AI_KEY")));
 
         var options = new ChatCompletionsOptions();
