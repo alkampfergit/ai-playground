@@ -22,6 +22,8 @@ namespace AzureAiPlayground.Pages.ViewModels
 
         public bool IsLoading { get; set; }
 
+        public bool IsInEditMode { get; set; }
+
         public IEnumerable<Endpoint> Endpoints { get; private set; }
 
         public Endpoint SelectedEndpoint { get; set; }
@@ -129,6 +131,22 @@ namespace AzureAiPlayground.Pages.ViewModels
         {
             _db.Delete(Id);
             InitNewChat();
+        }
+
+        public Task AddEmpty()
+        {
+            var lastMessage = ChatUi.Messages.LastOrDefault();
+
+            //add an empty message with a placeholder
+            var role = lastMessage?.Message.Role == "user" ? "system" : "user";
+            ChatUi.Messages.Add(new UiMessage(new Message { Role = role, Content = "Edit the message here" }));
+            return Task.CompletedTask;
+        }
+
+        public Task ToggleEdit()
+        {
+            IsInEditMode = !IsInEditMode;
+            return Task.CompletedTask;
         }
     }
 }

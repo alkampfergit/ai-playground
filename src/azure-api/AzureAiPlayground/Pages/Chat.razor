@@ -5,6 +5,7 @@
 @using AzureAiPlayground.Data;
 @using AzureAiPlayground.Pages.ViewModels;
 @using AzureAiPlayground.Support;
+@using Microsoft.AspNetCore.SignalR.Protocol
 @inject IJSRuntime JSRuntime
 @inject NavigationManager _navManager;
 
@@ -55,7 +56,11 @@
         <MudList>
             <MudTextField @bind-Value="ViewModel.ChatUi.Setup" Label="System Message" Lines="4" Variant="Variant.Outlined" />
 
-            <h4 class="mt-8 md-8">Chat</h4>
+            <h4 class="mt-8 md-8">Chat 
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"  OnClick="AddEmpty">Add</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"  OnClick="ToggleEdit">Edit</MudButton>
+                </h4>
+            
             @foreach (var uiMessage in ViewModel.ChatUi.Messages)
             {
                 var isUser = uiMessage.Message.Role.Equals("user", StringComparison.OrdinalIgnoreCase);
@@ -63,11 +68,21 @@
                 var listItemClass = isUser ? "justify-content-end" : "justify-content-start";
 
                 <MudListItem Class="@listItemClass">
-                    <div class="@(isUser ? "user-message" : isAssistant ? "assistant-message" : "")">
+                    
+                    @if (ViewModel.IsInEditMode)
+                    {
+                        <MudTextField 
+                            Lines="@uiMessage.NumberOfLines" 
+                            Label="@uiMessage.Message.Role" 
+                            @bind-Value="uiMessage.Message.Content"></MudTextField>
+                    }
+                    else 
+                    {
+                        <div class="@(isUser ? "user-message" : isAssistant ? "assistant-message" : "")">
                         @if (isUser)
                         {
                             <div class="mt-4">
-                                <MudMarkdown Value="@uiMessage.Message.Content" />
+                                <MudMarkdown Value="@uiMessage.Message.Content"/>
                             </div>
                         }
                         else
@@ -84,7 +99,7 @@
                                                 </div>
                                                 <div class="header-right">
                                                     <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => CopyToClipboard(fragment.Content))">
-                                                        <MudIcon Icon="Icons.Material.Filled.ContentCopy" />
+                                                        <MudIcon Icon="Icons.Material.Filled.ContentCopy"/>
                                                         <span>Copy code</span>
                                                     </MudButton>
                                                 </div>
@@ -100,12 +115,13 @@
                                 else
                                 {
                                     <div class="mt-4">
-                                        <MudMarkdown Value="@fragment.Content" />
+                                        <MudMarkdown Value="@fragment.Content"/>
                                     </div>
                                 }
                             }
                         }
                     </div>
+                    }
                 </MudListItem>
             }
         </MudList>
@@ -216,5 +232,15 @@
         {
             await ViewModel.SendMessage();
         }
+    } 
+    
+    private async void AddEmpty()
+    {
+        await ViewModel.AddEmpty();
+    }
+    
+    private async void ToggleEdit()
+    {
+        await ViewModel.ToggleEdit();
     }
 }
