@@ -1,6 +1,5 @@
 ﻿using AzureAiLibrary;
 using AzureAiLibrary.Helpers;
-using System.Linq;
 
 namespace AzureAiPlayground.Data
 {
@@ -10,17 +9,23 @@ namespace AzureAiPlayground.Data
         {
             Message = message;
             Fragments = ChatResponseParser.ParseApiResponse(message.Content);
-            message.ContentChanged+= Message_ContentChanged;
+            message.ContentChanged += Message_ContentChanged;
             NumberOfLines = message.Content.Count(c => c == '\n');
         }
 
         private void Message_ContentChanged(object? sender, EventArgs e)
         {
+            RefreshContentChanged();
+        }
+
+        public void RefreshContentChanged()
+        {
             //update the fragments
             Fragments = ChatResponseParser.ParseApiResponse(Message.Content);
+            NumberOfLines = Message.Content.Count(c => c == '\n');
             OnContentChanged(); //propagate the event to signal that the content chagned
         }
-        
+
         public event EventHandler ContentChanged;
 
         public void OnContentChanged()
@@ -31,7 +36,7 @@ namespace AzureAiPlayground.Data
         public AzureAiLibrary.Message Message { get; private set; }
 
         public List<TextFragment> Fragments { get; private set; }
-        
+
         public int NumberOfLines { get; set; }
     }
 }

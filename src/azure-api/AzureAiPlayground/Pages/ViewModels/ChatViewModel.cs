@@ -8,6 +8,7 @@ namespace AzureAiPlayground.Pages.ViewModels
     using AzureAiLibrary.Helpers;
     using AzureAiPlayground.Data;
     using AzureAiPlayground.Support;
+    using Microsoft.AspNetCore.Connections.Features;
     using System;
     using System.Linq;
     using System.Threading.Tasks;
@@ -138,13 +139,20 @@ namespace AzureAiPlayground.Pages.ViewModels
             var lastMessage = ChatUi.Messages.LastOrDefault();
 
             //add an empty message with a placeholder
-            var role = lastMessage?.Message.Role == "user" ? "system" : "user";
-            ChatUi.Messages.Add(new UiMessage(new Message { Role = role, Content = "Edit the message here" }));
+            var role = lastMessage?.Message.Role == "user" ? "assistant" : "user";
+            UiMessage newMessage = new UiMessage(new Message { Role = role, Content = "Edit the message here" });
+            newMessage.NumberOfLines = 10; //give space.
+            ChatUi.Messages.Add(newMessage);
             return Task.CompletedTask;
         }
 
         public Task ToggleEdit()
         {
+            if (IsInEditMode) 
+            {
+                //update each message in chat
+                foreach (var message in ChatUi.Messages) { message.RefreshContentChanged(); }
+            }
             IsInEditMode = !IsInEditMode;
             return Task.CompletedTask;
         }

@@ -71,6 +71,7 @@
                     
                     @if (ViewModel.IsInEditMode)
                     {
+                        <MudText>@uiMessage.NumberOfLines</MudText>
                         <MudTextField 
                             Lines="@uiMessage.NumberOfLines" 
                             Label="@uiMessage.Message.Role" 
@@ -233,14 +234,15 @@
             await ViewModel.SendMessage();
         }
     } 
-    
+
     private async void AddEmpty()
     {
         await ViewModel.AddEmpty();
     }
-    
+
     private async void ToggleEdit()
     {
         await ViewModel.ToggleEdit();
+        StateHasChanged();
     }
 }
