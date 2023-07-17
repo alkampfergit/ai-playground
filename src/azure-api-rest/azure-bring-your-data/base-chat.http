@@ -1,0 +1,20 @@
+POST {{baseDeployment}}openai/deployments/Gpt4/extensions/chat/completions?api-version=2023-06-01-preview
+api-key: {{$processEnv AI_KEY}}
+Content-Type: application/json
+
+{"dataSources":[{
+    "type":"AzureCognitiveSearch",
+    "parameters":{
+        "endpoint":"https://humblebundletest.search.windows.net",
+        "key":"{{$processEnv AZURE_SEARCH_KEY}}",
+        "indexName":"testindex01",
+        "semanticConfiguration":"",
+        "queryType":
+        "simple",
+        "fieldsMapping":null,
+        "inScope":true,
+        "roleInformation":
+        "You are an AI assistant that helps people find information."}
+        }],
+        "messages":[{"role":"user","content":"Can you explain the technique called \"Complete mediation\"?"}],
+        "deployment":"Gpt4","temperature":0,"top_p":1,"max_tokens":800,"stop":null,"stream":true}
