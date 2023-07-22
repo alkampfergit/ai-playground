@@ -1,0 +1,24 @@
+@page "/documents"
+@inherits ViewModels.DocumentsPage
+
+@inject NavigationManager _navManager;
+
+<h3>Documents</h3>
+
+<MudContainer Style="max-width: 800px; margin: auto;">
+    <MudCard>
+        <MudCardContent>
+            <h1>Start Services</h1>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@StartServices">Start Services</MudButton>
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard>
+        <MudCardContent>
+            <h1>Specify Path With document </h1>
+            <MudTextField @bind-Value="@Path" Label="Path" />
+            <MudTextField @bind-Value="@Filter" Label="Filter" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ExtractWithTika">Extract with tika</MudButton>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>

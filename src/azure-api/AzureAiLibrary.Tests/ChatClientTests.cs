@@ -77,7 +77,6 @@ public class ChatClientTests
                 Content = new StringContent(ErrorApiResponse),
             });
 
-
         var httpClientFactoryMock = new Mock<IHttpClientFactory>();
         var httpClient = new HttpClient(handlerMock.Object)
         {

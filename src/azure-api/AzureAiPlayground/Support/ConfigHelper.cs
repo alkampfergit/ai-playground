@@ -1,4 +1,6 @@
-﻿namespace AzureAiPlayground.Support
+﻿using AzureAiPlayground.Pages.ViewModels;
+
+namespace AzureAiPlayground.Support
 {
     public static class ConfigHelper
     {
@@ -8,6 +10,11 @@
             var setting = new T();
             configuration.Bind(section, setting);
             return setting;
+        }
+
+        public static void ConfigureDocumentsSection(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddSingleton<DocumentsViewModel>();
         }
     }
 }

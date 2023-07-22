@@ -5,11 +5,19 @@ using AzureAiPlayground.Pages.ViewModels;
 using AzureAiPlayground.Support;
 using MudBlazor;
 using MudBlazor.Services;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var logConfiguration = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.WithProperty("service", "AzureAiLibrary");
+
+Log.Logger = logConfiguration.CreateLogger();
+
 var chatConfig = builder.Services.ConfigureSetting<ChatConfig>(builder.Configuration, "chatConfig");
 var azureOpenAiConfiguration = builder.Services.ConfigureSetting<AzureOpenAiConfiguration>(builder.Configuration, "AzureOpenAiConfiguration");
+var documentsConfiguration = builder.Services.ConfigureSetting<DocumentsConfig>(builder.Configuration, "Documents");
 
 // Add services to the container.
 builder.Services.AddRazorPages();
@@ -22,7 +30,12 @@ builder.Services.AddSingleton<TemplateHelper>();
 builder.Services.AddSingleton<ITemplateManager, DefaultTemplateManager>();
 builder.Services.AddTransient<ChatViewModel>();
 
+builder.Services.AddLogging(cfg => cfg.AddSerilog());
 
+//Configure everything related to documents.
+ConfigHelper.ConfigureDocumentsSection(builder.Services, builder.Configuration);
+
+//loggerFactory.AddSerilog(); //TODO: Do not remmeber where to put this with new initialization
 foreach (var config in azureOpenAiConfiguration.Endpoints)
 {
     builder.Services.AddHttpClient(config.Name, client =>
