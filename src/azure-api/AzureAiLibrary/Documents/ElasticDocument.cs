@@ -1,5 +1,6 @@
 using Nest;
 using Serilog;
+using System.Collections.Generic;
 
 public class ElasticDocument : Dictionary<string, object>
 {
@@ -12,6 +13,24 @@ public class ElasticDocument : Dictionary<string, object>
     public ElasticDocument(string id)
     {
         Id = id;
+    }
+
+    public float[] GetVector(string fieldName)
+    {
+        if (TryGetValue(fieldName, out var vector))
+        { 
+            if (vector is IEnumerable<float> fv)
+            {
+                return fv.ToArray();
+            }
+            //when reloaded elastic will generate a collection of object
+            if (vector is IEnumerable<object> ov)
+            {
+                return ov.OfType<double>().Select(d => (float) d).ToArray();
+            }
+        }
+
+        return Array.Empty<float>();
     }
 }
 
@@ -59,6 +78,9 @@ public class ElasticSearchService
                          .NumberOfShards(2)
                          .Analysis(CreateIndexSettingsAnalysisDescriptor))
                      .Map(m => m
+                         .Properties(props => props
+                            .DenseVector(dv => dv.Name("bert").Dimensions(512)) //todo this should be added directly from adding vectors.
+                         )
                          //.RoutingField(r => r.Required())
                          //.AutoMap<OmniSearchItemSecurityDescriptor>()
                          //.AutoMap<OmniSearchItem>()
@@ -80,6 +102,47 @@ public class ElasticSearchService
         }
 
         return createIndexResponse.IsValid;
+    }
+
+    public async Task<bool> IndexAsync(string indexName, IReadOnlyCollection<ElasticDocument> documents)
+    {
+        var bulk = new Nest.BulkDescriptor();
+
+        foreach (dynamic document in documents)
+        {
+            bulk.Index<ElasticDocument>(op =>
+            {
+                op.Document(document)
+                    .Id(document.Id) //remember to use the id when index <Object>
+                    .Index(indexName);
+
+                return op;
+            });
+        }
+
+        var result = await _elasticClient.BulkAsync(bulk);
+        if (!result.IsValid)
+        {
+            Logger.Error($"Unable to bulk insert nodes: {result.ItemsWithErrors.Count()} items were not saved correctly on a total of {documents.Count}. {result.ServerError} {result.DebugInformation}", result.OriginalException);
+
+            //todo: better error message, better error handling
+
+        }
+
+        return result.IsValid;
+    }
+
+    public async Task<ElasticDocument?> GetByIdAsync(string indexName, string id)
+    {
+        var request = new GetRequest(indexName, new Id(id));
+        var response = await _elasticClient.GetAsync<ElasticDocument>(request);
+        if (!response.IsValid)
+        {
+            Logger.Error($"Unable to get element with id {id} error {response.DebugInformation}");
+            return null;
+        }
+        response.Source.Id = id;
+        return response.Source;
     }
 
     public const string StringPropertiesAnalyzer = "string_props";
@@ -191,47 +254,6 @@ public class ElasticSearchService
         );
 
         return descriptor;
-    }
-
-    public async Task<bool> IndexAsync(string indexName, IReadOnlyCollection<ElasticDocument> documents)
-    {
-        var bulk = new Nest.BulkDescriptor();
-
-        foreach (dynamic document in documents)
-        {
-            bulk.Index<ElasticDocument>(op =>
-            {
-                op.Document(document)
-                    .Id(document.Id) //remember to use the id when index <Object>
-                    .Index(indexName);
-
-                return op;
-            });
-        }
-
-        var result = await _elasticClient.BulkAsync(bulk);
-        if (!result.IsValid)
-        {
-            Logger.Error($"Unable to bulk insert nodes: {result.ItemsWithErrors.Count()} items were not saved correctly on a total of {documents.Count}. {result.ServerError} {result.DebugInformation}", result.OriginalException);
-
-            //todo: better error message, better error handling
-
-        }
-
-        return result.IsValid;
-    }
-
-    public async Task<ElasticDocument?> GetByIdAsync(string indexName, string id)
-    {
-        var request = new GetRequest(indexName, new Id(id));
-        var response = await _elasticClient.GetAsync<ElasticDocument>(request);
-        if (!response.IsValid)
-        {
-            Logger.Error($"Unable to get element with id {id} error {response.DebugInformation}");
-            return null;
-        }
-        response.Source.Id = id;
-        return response.Source;
     }
 
     public static Func<DynamicTemplateContainerDescriptor<Object>, IPromise<IDynamicTemplateContainer>> MapDynamicProperties

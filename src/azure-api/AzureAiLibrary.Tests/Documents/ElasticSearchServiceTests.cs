@@ -7,6 +7,7 @@ public class ElasticSearchServiceTests : IDisposable
     private ElasticSearchService _sut;
     private ElasticClient _elasticClient;
     private string _indexName;
+    private Random _random;
 
     public ElasticSearchServiceTests()
     {
@@ -15,6 +16,7 @@ public class ElasticSearchServiceTests : IDisposable
         _elasticClient = new ElasticClient(uri);
 
         _indexName = "test_" + Guid.NewGuid().ToString().Replace("-", "");
+        _random = new Random((int)DateTime.Now.Ticks);
     }
 
     public void Dispose()
@@ -58,5 +60,47 @@ public class ElasticSearchServiceTests : IDisposable
         Assert.Equal(data["Title"], reloaded["Title"]);
         Assert.Equal(data["s_metadata1"], reloaded["s_metadata1"]);
         Assert.Equal(data["s_metadata2"], reloaded["s_metadata2"]);
+    }
+
+    [Fact]
+    public async Task Can_index_with_bert()
+    {
+        await _sut.InitIndexAsync(_indexName);
+
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data["Title"] = "Test Title";
+        data["bert"] = GenerateRandomVector(512);
+
+        var insert = await _sut.IndexAsync(_indexName, new ElasticDocument[] { data });
+        Assert.True(insert, "Bulk insert did not work");
+
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, data.Id);
+
+        Assert.NotNull(reloaded);
+
+        //Assert equality
+        Assert.Equal(data.Id, reloaded.Id);
+
+        Assert.Equal(data["Title"], reloaded["Title"]);
+
+        float[] databert = data.GetVector("bert");
+        float[] reloadedbert = reloaded.GetVector("bert");
+
+        Assert.Equal(512, databert.Length);
+        Assert.Equal(512, reloadedbert.Length);
+
+        Assert.Equal(databert, reloadedbert);
+    }
+
+    private float[] GenerateRandomVector(int dimension)
+    {
+        //Generate an array of dimension with random number
+        float[] retValue = new float[dimension];
+        for (int i = 0; i < dimension; i++)
+        {
+            retValue[i] = _random.Next() / (float)_random.Next();
+        }
+
+        return retValue;
     }
 }
