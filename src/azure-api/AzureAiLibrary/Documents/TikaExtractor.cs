@@ -2,7 +2,6 @@
 using MongoDB.Driver;
 using Serilog;
 using System.Diagnostics;
-using System.Text;
 
 namespace AzureAiLibrary.Documents
 {
@@ -24,7 +23,8 @@ namespace AzureAiLibrary.Documents
             _documents.Indexes.CreateOne(
                 new CreateIndexModel<MongoRawDocument>(
                     Builders<MongoRawDocument>.IndexKeys.Ascending(x => x.Analyze),
-                    new CreateIndexOptions {
+                    new CreateIndexOptions
+                    {
                         Sparse = true,
                         Background = true,
                         Name = "Analyze"
@@ -47,15 +47,18 @@ namespace AzureAiLibrary.Documents
             {
                 try
                 {
+                    var exists = _documents.AsQueryable().Any(d => d.Id == file);
+                    if (exists) continue;
+
                     Logger.Information("Extracting text with tika from {0}", file);
                     var extracted = await _tikaOutOfProcess.GetHtmlContentAsync(file);
-                    if (extracted != null)
+                    if (extracted.Success)
                     {
                         var rawDocument = new MongoRawDocument
                         {
                             Id = file,
-                            Pages = extracted.Pages,
-                            Metadata = extracted.Metadata,
+                            Pages = extracted.Pages!,
+                            Metadata = extracted.Metadata!,
                             Analyze = DateTime.UtcNow
                         };
 
@@ -63,6 +66,11 @@ namespace AzureAiLibrary.Documents
                             x => x.Id == rawDocument.Id,
                             rawDocument,
                             new ReplaceOptions { IsUpsert = true });
+                    }
+                    else
+                    {
+                        //we have errors 
+                        Log.Error("Error extracting tika for document {0} - {1}", file, extracted.Error);
                     }
                 }
                 catch (Exception ex)
@@ -94,7 +102,7 @@ namespace AzureAiLibrary.Documents
             }
         }
 
-        public async Task<TikaExtractedData?> GetHtmlContentAsync(string pathToInputFile)
+        public async Task<TikaExtractedData> GetHtmlContentAsync(string pathToInputFile)
         {
             try
             {
@@ -105,7 +113,7 @@ namespace AzureAiLibrary.Documents
                 var psi = new ProcessStartInfo(_pathToJavaExe, arguments)
                 {
                     UseShellExecute = false,
-                    RedirectStandardError = false,
+                    RedirectStandardError = true,
                     RedirectStandardOutput = true,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Minimized
@@ -116,42 +124,35 @@ namespace AzureAiLibrary.Documents
                 using (var p = Process.Start(psi))
                 {
                     using var reader = p.StandardOutput;
+                    using var errorReader = p.StandardError;
                     var cancellationToken = new CancellationTokenSource(10_000);
 
-                    //fire and forget read to end async
-                    //TODO: read error in another thread, so we can log it.
-                    StringBuilder sb = new StringBuilder();
-                    string? line;
-                    while ((line = await reader.ReadLineAsync(cancellationToken.Token)) != null) 
-                    {
-                        sb.AppendLine(line);
-                    }
+                    ErrorStreamReader esr = new(cancellationToken.Token, errorReader);
+                    content = await reader.ReadToEndAsync(cancellationToken.Token);
 
                     if (cancellationToken.IsCancellationRequested)
                     {
                         //we have a timeout, ok we really need to kill the process and consider impossible to extract text from this file
                         Logger.Error("Tika timeout reached, we need to kill the process");
                         p.Kill();
-                        return null;
                     }
 
                     //need to check if the exit code is ok.
                     if (p.ExitCode == 0)
                     {
-                        return CreateExtractedData(sb.ToString());
+                        return CreateExtractedData(content);
                     }
-                    else
-                    {
-                        Logger.Error("failed extracting with {0} exit code {1}", _tikaLocation, p.ExitCode);
-                    }
+
+                    Logger.Error("failed extracting with {0} exit code {1}", _tikaLocation, p.ExitCode);
+                    await esr.ReadingTask;
+                    return new TikaExtractedData(null, null, esr.Errors, false);
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error(ex, "Error extracting with tika {0}", ex.Message);
+                return new TikaExtractedData(null, null, ex.Message, false);
             }
-
-            return null;
         }
 
         private TikaExtractedData CreateExtractedData(string content)
@@ -172,9 +173,36 @@ namespace AzureAiLibrary.Documents
                     .GroupBy(n => n.Name)
                     .ToDictionary(n => n.Key, n => (IReadOnlyCollection<string>)n.Select(x => x.Content).ToArray());
             }
-            return new TikaExtractedData(metadata, allPages);
+            return new TikaExtractedData(metadata, allPages, string.Empty, true);
+        }
+
+        private class ErrorStreamReader
+        {
+            private Task _task;
+
+            public Task ReadingTask => _task;
+
+            public string Errors { get; private set; }
+
+            public ErrorStreamReader(
+                CancellationToken token,
+                StreamReader errorReader)
+            {
+                _task = Task.Run(() => ReadToEndAsync(token, errorReader));
+            }
+
+            private async Task ReadToEndAsync(
+                CancellationToken token,
+                StreamReader errorReader)
+            {
+                Errors = await errorReader.ReadToEndAsync(token);
+            }
         }
     }
 
-    public record TikaExtractedData(IReadOnlyDictionary<string, IReadOnlyCollection<string>> Metadata, IReadOnlyCollection<string> Pages);
+    public record TikaExtractedData(
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>>? Metadata,
+        IReadOnlyCollection<string>? Pages,
+        String Error,
+        Boolean Success);
 }

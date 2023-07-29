@@ -1,5 +1,6 @@
 using AzureAiLibrary;
 using AzureAiLibrary.Configuration;
+using AzureAiLibrary.Documents.Jobs;
 using AzureAiLibrary.Helpers;
 using AzureAiPlayground.Pages.ViewModels;
 using AzureAiPlayground.Support;

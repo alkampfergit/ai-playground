@@ -1,5 +1,7 @@
-﻿using AzureAiLibrary.Configuration;
+﻿using AzureAiLibrary;
+using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Documents;
+using AzureAiLibrary.Documents.Jobs;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -7,11 +9,14 @@ namespace AzureAiPlayground.Pages.ViewModels
 {
     public class DocumentsViewModel
     {
+        private readonly Gpt35AiCleaner _gpt35AiCleaner;
         private IMongoDatabase _mongoDatabase;
         private TikaExtractor _tikaExtractor;
         private RawDocumentSimpleReader _rawDocumentSimpleReader;
 
-        public DocumentsViewModel(IOptionsMonitor<DocumentsConfig> documentsConfig)
+        public DocumentsViewModel(
+            IOptionsMonitor<DocumentsConfig> documentsConfig,
+            ChatClient chatClient)
         {
             var url = new MongoUrl(documentsConfig.CurrentValue.MongoUrl);
             var settings = MongoClientSettings.FromUrl(url);
@@ -23,7 +28,9 @@ namespace AzureAiPlayground.Pages.ViewModels
                    documentsConfig.CurrentValue.Tika),
                 _mongoDatabase);
 
+            //TODO: Register database and register this in the ui container.
             _rawDocumentSimpleReader = new RawDocumentSimpleReader(_mongoDatabase);
+            _gpt35AiCleaner = new Gpt35AiCleaner(_mongoDatabase, chatClient);
         }
 
         public Task ExtractPath(string path, string filter)
@@ -34,6 +41,7 @@ namespace AzureAiPlayground.Pages.ViewModels
         internal Task StartServices()
         {
             _rawDocumentSimpleReader.Start();
+            _gpt35AiCleaner.Start();
             return Task.CompletedTask;
         }
     }

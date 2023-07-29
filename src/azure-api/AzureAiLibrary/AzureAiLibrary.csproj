@@ -8,6 +8,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Files\cl100k_base.tiktoken" />
+    <None Remove="Files\p50k_base.tiktoken" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Files\cl100k_base.tiktoken">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Files\p50k_base.tiktoken">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="1.0.0-beta.5" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.50" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="7.0.0" />
@@ -20,6 +34,7 @@
     <PackageReference Include="Serilog.Extensions.Logging" Version="7.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="TiktokenSharp" Version="1.0.6" />
   </ItemGroup>
 
 </Project>

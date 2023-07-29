@@ -50,9 +50,17 @@ public class ChatClient
         return new Message(streamingChatCompletions);
     }
 
-    public async Task<Message> SendMessageAsync(
+    public Task<Message> SendMessageAsync(
         string httpClientName,
         ApiPayload chatRequest)
+    {
+        return SendMessageAsync(httpClientName, chatRequest, CancellationToken.None);
+    }
+        
+    public async Task<Message> SendMessageAsync(
+        string httpClientName,
+        ApiPayload chatRequest,
+        CancellationToken token)
     {
         var requestBody = JsonSerializer.Serialize(chatRequest);
         var endpoint = _azureConfig.CurrentValue.GetEndpoint(httpClientName);
@@ -62,9 +70,9 @@ public class ChatClient
         };
 
         var httpClient = _httpClientFactory.CreateClient(httpClientName);
-        var response = await httpClient.SendAsync(request);
+        var response = await httpClient.SendAsync(request, token);
 
-        if (!response.IsSuccessStatusCode)
+        if (token.IsCancellationRequested || !response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync();
             throw new Exception($"API call failed with status code {response.StatusCode}: {response.ReasonPhrase}");

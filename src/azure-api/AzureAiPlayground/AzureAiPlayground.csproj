@@ -16,6 +16,7 @@
     <PackageReference Include="Serilog.Settings.Configuration" Version="7.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="TiktokenSharp" Version="1.0.6" />
   </ItemGroup>
 
   <ItemGroup>
