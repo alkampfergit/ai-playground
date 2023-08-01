@@ -53,7 +53,7 @@ namespace AzureAiLibrary.Documents
         /// </summary>
         public int Cl100kBaseTokens { get; set; }
 
-        public Gpt35PageInformation Gpt35PageInformation { get; set; }
+        public Gpt35PageInformation? Gpt35PageInformation { get; set; }
 
         public double[] BertEmbedding { get; set; }
     }

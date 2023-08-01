@@ -1,7 +1,11 @@
 ﻿using MongoDB.Driver;
+using Polly;
+using Polly.Retry;
 using Serilog;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks.Dataflow;
 
 namespace AzureAiLibrary.Documents.Jobs
 {
@@ -15,57 +19,101 @@ namespace AzureAiLibrary.Documents.Jobs
 
         private ILogger _logger = Log.ForContext<Gpt35AiCleaner>();
 
-        public Gpt35AiCleaner(IMongoDatabase db, ChatClient chatClient) : base(db)
-        {
-            _chatClient = chatClient;
-        }
+        private AsyncRetryPolicy _retryPolicy;
 
         protected override string PollerProperty => "CleanWithGpt35";
 
-        protected override async Task InnerPerformTask(MongoDocumentToIndex rawDocument)
+        public Gpt35AiCleaner(IMongoDatabase db, ChatClient chatClient) : base(db)
         {
+            _chatClient = chatClient;
+            _retryPolicy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(5 * retryAttempt), (ex, time) =>
+                {
+                    _logger.Warning(ex, $"An error occured while cleaning text at the specified page. Retrying in {time}");
+                });
+        }
+
+        private void CreateTplFlow()
+        {
+            _createBlock = new TransformBlock<MongoDocumentToIndex, IReadOnlyCollection<TplMessage>>(CreateBlockToIndex,
+                new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 });
+            _spreadBlock = CreateUnbatcherBlock<TplMessage>();
+            _createBlock.LinkTo(_spreadBlock, new DataflowLinkOptions() { PropagateCompletion = true });
+
+            _translateBlock = new ActionBlock<TplMessage>(Translate, new ExecutionDataflowBlockOptions()
+            {
+                MaxDegreeOfParallelism = 4,
+            });
+            _spreadBlock.LinkTo(_translateBlock, new DataflowLinkOptions() { PropagateCompletion = true });
+        }
+
+        private record TplMessage(DocumentPage Page, String Text);
+
+        private TransformBlock<MongoDocumentToIndex, IReadOnlyCollection<TplMessage>> _createBlock;
+        private IPropagatorBlock<IReadOnlyCollection<TplMessage>, TplMessage> _spreadBlock;
+        private ActionBlock<TplMessage> _translateBlock;
+
+        private IReadOnlyCollection<TplMessage> CreateBlockToIndex(MongoDocumentToIndex rawDocument)
+        {
+            List<TplMessage> retValue = new List<TplMessage>();
             var totalPages = rawDocument.Pages.Count(p => !p.Removed);
             foreach (var page in rawDocument.Pages.Where(p => !p.Removed))
             {
                 if (page.Gpt35PageInformation != null) continue;
-
-                try
+                StringBuilder text = new StringBuilder();
+                if (page.Number > 0)
                 {
-                    StringBuilder text = new StringBuilder();
-                    if (page.Number > 0)
+                    var prevPage = rawDocument.Pages[page.Number - 1];
+                    if (!prevPage.Removed && prevPage.Content?.Length > 50)
                     {
-                        var prevPage = rawDocument.Pages[page.Number - 1];
-                        if (!prevPage.Removed && prevPage.Content?.Length > 50)
-                        {
-                            text.Append(prevPage.Content.Substring(Math.Max(prevPage.Content.Length - 50, 0)));
-                        }
+                        text.Append(prevPage.Content.Substring(Math.Max(prevPage.Content.Length - 50, 0)));
                     }
-                    text.Append(page.Content);
-                    if (page.Number < rawDocument.Pages.Count - 1)
-                    {
-                        var nextPage = rawDocument.Pages[page.Number + 1];
-                        if (!nextPage.Removed && nextPage.Content?.Length > 50)
-                        {
-                            text.Append(nextPage.Content.Substring(0, Math.Min(50, nextPage.Content.Length)));
-                        }
-                    }
-
-                    //now I have the text I need to clean with gpt
-                    Logger.Information("About to clean page {pageNum} with GPT35 on a total of {total}", page.Number, totalPages);
-                    page.Gpt35PageInformation = await CleanPage(text.ToString());
                 }
-                catch (Exception ex)
+                text.Append(page.Content);
+                if (page.Number < rawDocument.Pages.Count - 1)
                 {
-                    Logger.Error(ex, "Error cleaning text with GPT35 in page {pageNum}", page.Number);
-                    rawDocument.CleanWithGpt35Errors = $"Error cleaning text with GPT35 in page {page.Number}: {ex}";
-                    return; //exit
+                    var nextPage = rawDocument.Pages[page.Number + 1];
+                    if (!nextPage.Removed && nextPage.Content?.Length > 50)
+                    {
+                        text.Append(nextPage.Content.Substring(0, Math.Min(50, nextPage.Content.Length)));
+                    }
                 }
+
+                //now I have the text I need to clean with gpt
+                Logger.Debug("Page {pageNum} will be cleaned with GPT35", page.Number, totalPages);
+                retValue.Add(new TplMessage(page, text.ToString()));
             }
-
-            Logger.Information("Finished cleanning {docId} with GPT3.5", rawDocument.Id);
+            return retValue;
         }
 
-        public async Task<Gpt35PageInformation> CleanPage(string pageContent)
+        public static IPropagatorBlock<IReadOnlyCollection<T>, T> CreateUnbatcherBlock<T>()
+        {
+            var block = new TransformManyBlock<IReadOnlyCollection<T>, T>(array => array);
+            return block;
+        }
+
+        private async Task Translate(TplMessage message)
+        {
+            _logger.Information("AiCleaner processing page {page}", message.Page.Number);
+            message.Page.Gpt35PageInformation = await _retryPolicy.ExecuteAsync(() => CleanPage(message.Text.ToString()));
+        }
+
+        protected override async Task InnerPerformTask(MongoDocumentToIndex rawDocument)
+        {
+            CreateTplFlow();
+            rawDocument.CleanWithGpt35Errors = "";
+            _createBlock.Post(rawDocument);
+
+            //now I simply need to wait for all the block to finish.
+            _createBlock.Complete();
+
+            await _translateBlock.Completion;
+
+             Logger.Information("Finished cleanning {docId} with GPT3.5", rawDocument.Id);
+        }
+
+        public async Task<Gpt35PageInformation?> CleanPage(string pageContent)
         {
             List<Message> messages = new List<Message>()
             {
@@ -102,7 +150,11 @@ Text Follows
             {
                 try
                 {
-                    return JsonSerializer.Deserialize<Gpt35PageInformation>(response.Content)!;
+                    var deserialized = JsonSerializer.Deserialize<Gpt35PageInformation>(response.Content)!;
+                    if (deserialized?.Links?.Any() == true)
+                    {
+                        deserialized.Links = deserialized.Links.Distinct().ToList(); //gpt tends to repeat links
+                    }
                 }
                 catch (Exception ex)
                 {

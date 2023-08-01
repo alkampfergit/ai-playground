@@ -75,7 +75,12 @@ public class ChatClient
         if (token.IsCancellationRequested || !response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync();
-            throw new Exception($"API call failed with status code {response.StatusCode}: {response.ReasonPhrase}");
+            //we could have rate limiting
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests) 
+            {
+                await Task.Delay(5000);
+            }
+            throw new Exception($"API call failed with status code: {response.StatusCode}: {response.ReasonPhrase} - {error}");
         }
 
         var responseBody = await response.Content.ReadAsStringAsync();
