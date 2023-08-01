@@ -1,9 +1,10 @@
+using Azure;
+using Azure.AI.OpenAI;
 using AzureAiLibrary.Configuration;
 using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
-using Azure;
-using Azure.AI.OpenAI;
+using System.Text.RegularExpressions;
 
 namespace AzureAiLibrary;
 
@@ -36,16 +37,16 @@ public class ChatClient
             options.Messages.Add(new ChatMessage(message.GetChatRole(), message.Content));
         }
 
-        options.Temperature = (float?) chatRequest.Temperature;
+        options.Temperature = (float?)chatRequest.Temperature;
         options.MaxTokens = chatRequest.MaxTokens;
         options.FrequencyPenalty = chatRequest.PresencePenalty;
         options.PresencePenalty = chatRequest.PresencePenalty;
-        
+
         // ### If streaming is selected
         Response<StreamingChatCompletions> response = await client.GetChatCompletionsStreamingAsync(
             deploymentOrModelName: endpoint.Name,
             options);
-        
+
         StreamingChatCompletions streamingChatCompletions = response.Value;
         return new Message(streamingChatCompletions);
     }
@@ -56,7 +57,7 @@ public class ChatClient
     {
         return SendMessageAsync(httpClientName, chatRequest, CancellationToken.None);
     }
-        
+
     public async Task<Message> SendMessageAsync(
         string httpClientName,
         ApiPayload chatRequest,
@@ -76,9 +77,20 @@ public class ChatClient
         {
             var error = await response.Content.ReadAsStringAsync();
             //we could have rate limiting
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests) 
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
-                await Task.Delay(5000);
+                var match = Regex.Match(error, "etry after\\s(\\d+)\\ssecond");
+                if (match.Success)
+                {
+                    var seconds = int.Parse(match.Groups[1].Value);
+                    await Task.Delay(seconds * 1000);
+                }
+                else
+                {
+                    //dunno how much time to wait, wait for 1 minutes then return
+                    await Task.Delay(60_000);
+                }
+                return await SendMessageAsync(httpClientName, chatRequest, token);
             }
             throw new Exception($"API call failed with status code: {response.StatusCode}: {response.ReasonPhrase} - {error}");
         }
