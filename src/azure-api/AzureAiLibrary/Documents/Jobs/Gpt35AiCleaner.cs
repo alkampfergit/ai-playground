@@ -27,7 +27,7 @@ namespace AzureAiLibrary.Documents.Jobs
         {
             _chatClient = chatClient;
             _retryPolicy = Policy
-                .Handle<Exception>()
+                .Handle<Exception>(ex => !ex.Message.Contains("The response was filtered"))
                 .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(5 * retryAttempt), (ex, time) =>
                 {
                     _logger.Warning(ex, $"An error occured while cleaning text at the specified page. Retrying in {time}");
@@ -95,12 +95,21 @@ namespace AzureAiLibrary.Documents.Jobs
 
         private async Task Translate(TplMessage message)
         {
-            _logger.Information("AiCleaner processing page {page}", message.Page.Number);
-            message.Page.Gpt35PageInformation = await _retryPolicy.ExecuteAsync(() => CleanPage(message.Text.ToString()));
+            try
+            {
+                _logger.Information("AiCleaner processing page {page}", message.Page.Number);
+                message.Page.Gpt35PageInformation = await _retryPolicy.ExecuteAsync(() => CleanPage(message.Text.ToString()));
+            }
+            catch (Exception ex)
+            {
+                //Exception passed polly
+                message.Page.Gpt35PageInformation = Gpt35PageInformation.ForError(ex.Message);
+            }
         }
 
         protected override async Task InnerPerformTask(MongoDocumentToIndex rawDocument)
         {
+            Logger.Information("About to clean {docId} with GPT3.5", rawDocument.Id);
             CreateTplFlow();
             rawDocument.CleanWithGpt35Errors = "";
             _createBlock.Post(rawDocument);
@@ -110,7 +119,7 @@ namespace AzureAiLibrary.Documents.Jobs
 
             await _translateBlock.Completion;
 
-             Logger.Information("Finished cleanning {docId} with GPT3.5", rawDocument.Id);
+            Logger.Information("Finished cleanning {docId} with GPT3.5", rawDocument.Id);
         }
 
         public async Task<Gpt35PageInformation?> CleanPage(string pageContent)
@@ -172,5 +181,23 @@ Text Follows
         public List<string>? Ner { get; set; }
 
         public List<string>? Links { get; set; }
+
+        /// <summary>
+        /// Gpt cannot clean the page.
+        /// </summary>
+        public bool Failed { get; set; }
+
+        public string? ErrorMessage { get; set; }
+
+        internal static Gpt35PageInformation? ForError(string message)
+        {
+            return new Gpt35PageInformation()
+            {
+                Failed = true,
+                ErrorMessage = message,
+                Ner = new List<string>(),
+                Links = new List<string>(),
+            };
+        }
     }
 }
