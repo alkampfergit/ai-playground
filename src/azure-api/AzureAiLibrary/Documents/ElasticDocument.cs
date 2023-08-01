@@ -1,36 +1,60 @@
+using AzureAiLibrary.Documents;
 using Nest;
 using Serilog;
-using System.Collections.Generic;
 
-public class ElasticDocument : Dictionary<string, object>
+namespace AzureAiLibrary.Documents
 {
-    public string Id { get; set; }
-
-    public ElasticDocument()
+    [ElasticsearchType(IdProperty = "Id")]
+    public class ElasticDocument : Dictionary<string, object>
     {
-    }
+        public string Id { get; set; } = null!;
 
-    public ElasticDocument(string id)
-    {
-        Id = id;
-    }
-
-    public float[] GetVector(string fieldName)
-    {
-        if (TryGetValue(fieldName, out var vector))
-        { 
-            if (vector is IEnumerable<float> fv)
+        public string? Title
+        {
+            get
             {
-                return fv.ToArray();
+                return GetPropertyString("title");
             }
-            //when reloaded elastic will generate a collection of object
-            if (vector is IEnumerable<object> ov)
-            {
-                return ov.OfType<double>().Select(d => (float) d).ToArray();
-            }
+            set { AddProperty("title", value ?? string.Empty); }
         }
 
-        return Array.Empty<float>();
+        public ElasticDocument() : base(StringComparer.OrdinalIgnoreCase)
+        {
+        }
+
+        public ElasticDocument(string id) : this()
+        {
+            Id = id;
+        }
+
+        public ElasticDocument AddProperty(string key, string value)
+        {
+            this[$"s_{key}"] = value;
+            return this;
+        }
+
+        public string? GetPropertyString(string key)
+        {
+            return TryGetValue($"s_{key}", out var title) ? title as string : string.Empty;
+        }
+
+        public float[] GetVector(string fieldName)
+        {
+            if (TryGetValue(fieldName, out var vector))
+            {
+                if (vector is IEnumerable<float> fv)
+                {
+                    return fv.ToArray();
+                }
+                //when reloaded elastic will generate a collection of object
+                if (vector is IEnumerable<object> ov)
+                {
+                    return ov.OfType<double>().Select(d => (float)d).ToArray();
+                }
+            }
+
+            return Array.Empty<float>();
+        }
     }
 }
 
@@ -77,9 +101,11 @@ public class ElasticSearchService
                          .NumberOfReplicas(1)
                          .NumberOfShards(2)
                          .Analysis(CreateIndexSettingsAnalysisDescriptor))
-                     .Map(m => m
+                     .Map<ElasticDocument>(m => m
+                         .AutoMap()
                          .Properties(props => props
                             .DenseVector(dv => dv.Name("bert").Dimensions(512)) //todo this should be added directly from adding vectors.
+                            .Text(dv => dv.Name(d => d.Title).Analyzer("english"))
                          )
                          //.RoutingField(r => r.Required())
                          //.AutoMap<OmniSearchItemSecurityDescriptor>()
@@ -106,7 +132,7 @@ public class ElasticSearchService
 
     public async Task<bool> IndexAsync(string indexName, IReadOnlyCollection<ElasticDocument> documents)
     {
-        var bulk = new Nest.BulkDescriptor();
+        var bulk = new BulkDescriptor();
 
         foreach (dynamic document in documents)
         {
@@ -256,7 +282,7 @@ public class ElasticSearchService
         return descriptor;
     }
 
-    public static Func<DynamicTemplateContainerDescriptor<Object>, IPromise<IDynamicTemplateContainer>> MapDynamicProperties
+    public static Func<DynamicTemplateContainerDescriptor<ElasticDocument>, IPromise<IDynamicTemplateContainer>> MapDynamicProperties
     {
         get
         {

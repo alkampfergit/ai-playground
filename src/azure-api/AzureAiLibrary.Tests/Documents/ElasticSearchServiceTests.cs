@@ -1,3 +1,4 @@
+using AzureAiLibrary.Documents;
 using Nest;
 
 namespace AzureAiLibrary.Tests.Documents;
@@ -11,7 +12,7 @@ public class ElasticSearchServiceTests : IDisposable
 
     public ElasticSearchServiceTests()
     {
-        Uri uri = new Uri("http://localhost:9201");
+        Uri uri = new Uri("http://localhost:9200");
         _sut = new ElasticSearchService(uri);
         _elasticClient = new ElasticClient(uri);
 
@@ -43,7 +44,7 @@ public class ElasticSearchServiceTests : IDisposable
         await _sut.InitIndexAsync(_indexName);
 
         ElasticDocument data = new(Guid.NewGuid().ToString());
-        data["Title"] = "Test Title";
+        data.Title = "Test Title";
         data["s_metadata1"] = "BLAAAA";
         data["s_metadata2"] = "this is a test";
 
@@ -57,7 +58,7 @@ public class ElasticSearchServiceTests : IDisposable
         //Assert equality
         Assert.Equal(data.Id, reloaded.Id);
 
-        Assert.Equal(data["Title"], reloaded["Title"]);
+        Assert.Equal(data.Title, reloaded.Title);
         Assert.Equal(data["s_metadata1"], reloaded["s_metadata1"]);
         Assert.Equal(data["s_metadata2"], reloaded["s_metadata2"]);
     }
