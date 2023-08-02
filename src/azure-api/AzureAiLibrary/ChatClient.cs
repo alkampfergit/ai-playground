@@ -79,17 +79,22 @@ public class ChatClient
             //we could have rate limiting
             if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
-                var match = Regex.Match(error, "etry after\\s(\\d+)\\ssecond");
-                if (match.Success)
+                TimeSpan sleep = TimeSpan.FromMinutes(1);
+                if (response.Headers.RetryAfter?.Delta != null)
                 {
-                    var seconds = int.Parse(match.Groups[1].Value);
-                    await Task.Delay(seconds * 1000);
+                    sleep = response.Headers.RetryAfter.Delta.Value;
                 }
                 else
                 {
-                    //dunno how much time to wait, wait for 1 minutes then return
-                    await Task.Delay(60_000);
+                    var match = Regex.Match(error, "etry after\\s(\\d+)\\ssecond");
+                    if (match.Success)
+                    {
+                        var seconds = int.Parse(match.Groups[1].Value);
+                        sleep = TimeSpan.FromSeconds(seconds);
+                    }
                 }
+
+                await Task.Delay(sleep, token);
                 return await SendMessageAsync(httpClientName, chatRequest, token);
             }
             throw new Exception($"API call failed with status code: {response.StatusCode}: {response.ReasonPhrase} - {error}");

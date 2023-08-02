@@ -47,7 +47,6 @@ namespace AzureAiLibrary.Documents.Jobs
             MongoDocumentToIndex rawDocument;
             while ((rawDocument = await _documentsToIndex.FindOneAndUpdateAsync(filter, update, options)) != null)
             {
-
                 try
                 {
                     await InnerPerformTask(rawDocument);
