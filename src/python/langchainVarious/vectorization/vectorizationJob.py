@@ -132,7 +132,7 @@ while True:
             # Update the document removing the job
             documents_to_index.update_one(
                 {'_id': raw_document['_id']},
-                {'$set': {'Processing': False},
+                {'$set': {'Processing': False, 'LastModification' : datetime.utcnow()},
                  '$unset': {'Embedding': "", 'EmbeddingModel': "", 'EmbeddingModelKey': ""}}
             )
             logging.info(f"Document {raw_document['_id']} updated")

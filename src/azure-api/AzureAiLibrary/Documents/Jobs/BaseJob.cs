@@ -60,6 +60,7 @@ namespace AzureAiLibrary.Documents.Jobs
                 }
                 finally
                 {
+                    rawDocument.IndexToElastic =  DateTime.UtcNow; //need to be reindexed in elastic.
                     var updateResult = await _documentsToIndex.ReplaceOneAsync(
                          Builders<MongoDocumentToIndex>.Filter.Eq(x => x.Id, rawDocument.Id),
                          rawDocument);
@@ -83,9 +84,15 @@ namespace AzureAiLibrary.Documents.Jobs
 
         protected abstract string PollerProperty { get; }
 
-        public void Start()
+        public async Task Start()
         {
+            await OnBeforeStart();
             _poller.Start();
+        }
+
+        protected virtual Task OnBeforeStart()
+        {
+            return Task.CompletedTask;
         }
 
         public Task StopAsync()

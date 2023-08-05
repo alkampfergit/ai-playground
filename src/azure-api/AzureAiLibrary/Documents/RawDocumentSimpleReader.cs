@@ -31,16 +31,6 @@ namespace AzureAiLibrary.Documents
             //Fire and forget
             _documentsToIndex.Indexes.CreateOne(
                 new CreateIndexModel<MongoDocumentToIndex>(
-                    Builders<MongoDocumentToIndex>.IndexKeys.Ascending(x => x.Elastic),
-                    new CreateIndexOptions
-                    {
-                        Sparse = true,
-                        Background = true,
-                        Name = "Elastic"
-                    }));
-
-            _documentsToIndex.Indexes.CreateOne(
-                new CreateIndexModel<MongoDocumentToIndex>(
                     Builders<MongoDocumentToIndex>.IndexKeys.Ascending(x => x.Processing),
                     new CreateIndexOptions
                     {
@@ -88,8 +78,9 @@ namespace AzureAiLibrary.Documents
                         Pages = pages,
                         Metadata = rawDocument.Metadata
                     };
+
                     //now simply insert into the collection signaling that the document is ready to be inserted into elastic
-                    documentToIndex.Elastic = DateTime.UtcNow;
+                    documentToIndex.IndexToElastic = DateTime.UtcNow;
 
                     //upsert the document
                     await _documentsToIndex.ReplaceOneAsync(

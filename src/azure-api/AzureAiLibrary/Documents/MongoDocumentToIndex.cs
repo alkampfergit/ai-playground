@@ -17,16 +17,17 @@ namespace AzureAiLibrary.Documents
         public bool Processing { get; set; }
 
         /// <summary>
-        /// Documents needed to be indexed into elastic
+        /// Documents needed to be indexed into elastic so the LastModification helps a poller
+        /// to index the document when it is modified.
         /// </summary>
-        public DateTime? Elastic { get; set; }
+        public DateTime? IndexToElastic { get; set; }
 
         /// <summary>
         /// If different from null, it will clean the text with GPT35
         /// </summary>
         public DateTime? CleanWithGpt35 { get; set; }
 
-        public string CleanWithGpt35Errors { get; set; } = "";  
+        public string CleanWithGpt35Errors { get; set; } = "";
 
         #endregion
     }

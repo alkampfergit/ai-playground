@@ -39,6 +39,21 @@ public class ElasticSearchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Can_init_more_than_once()
+    {
+        //when the service is inited it should cretate a mapping
+        await _sut.InitIndexAsync(_indexName);
+        await _sut.InitIndexAsync(_indexName);
+        await _sut.InitIndexAsync(_indexName);
+
+        //we need to have a mapping for the index.
+        var request = new GetMappingRequest(_indexName);
+        var mappings = _elasticClient.Indices.GetMapping(request);
+
+        Assert.True(mappings.IsValid);
+    }
+
+    [Fact]
     public async Task When_add_dense_vector_mapping_is_created()
     {
         var (vectorName, _, _) = await CreateIndexAndIndexDataWithVectors();
@@ -110,6 +125,29 @@ public class ElasticSearchServiceTests : IDisposable
         Assert.Equal(data.Title, reloaded.Title);
         Assert.Equal(data["s_metadata1"], reloaded["s_metadata1"]);
         Assert.Equal(data["s_metadata2"], reloaded["s_metadata2"]);
+    }
+
+    [Fact]
+    public async Task Index_text_properties()
+    {
+        await _sut.InitIndexAsync(_indexName);
+
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data.Title = "Test Title";
+        data.AddTextProperty("prova", "This is a super long test and can be analyzed");
+
+        var insert = await _sut.IndexAsync(_indexName, new ElasticDocument[] { data });
+        Assert.True(insert, "Bulk insert did not work");
+
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, data.Id);
+
+        Assert.NotNull(reloaded);
+
+        //Assert equality
+        Assert.Equal(data.Id, reloaded.Id);
+
+        Assert.Equal(data.Title, reloaded.Title);
+        Assert.Equal(data["t_prova"], reloaded["t_prova"]);
     }
 
     private async Task<(string vectorFieldName, string documentId, SingleDenseVectorData vectorData)> CreateIndexAndIndexDataWithVectors()

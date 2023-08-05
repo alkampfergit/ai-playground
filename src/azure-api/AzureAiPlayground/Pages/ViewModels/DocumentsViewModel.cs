@@ -10,6 +10,7 @@ namespace AzureAiPlayground.Pages.ViewModels
     public class DocumentsViewModel
     {
         private readonly Gpt35AiCleaner _gpt35AiCleaner;
+        private readonly ElasticSearchIndexerJob _elasticIndexer;
         private IMongoDatabase _mongoDatabase;
         private TikaExtractor _tikaExtractor;
         private RawDocumentSimpleReader _rawDocumentSimpleReader;
@@ -30,7 +31,10 @@ namespace AzureAiPlayground.Pages.ViewModels
 
             //TODO: Register database and register this in the ui container.
             _rawDocumentSimpleReader = new RawDocumentSimpleReader(_mongoDatabase);
+
+            //TODO register all jobs and resolve all
             _gpt35AiCleaner = new Gpt35AiCleaner(_mongoDatabase, chatClient);
+            _elasticIndexer = new ElasticSearchIndexerJob(_mongoDatabase, new ElasticSearchService(new Uri(documentsConfig.CurrentValue.ElasticUrl)));
         }
 
         public Task ExtractPath(string path, string filter)
@@ -38,11 +42,11 @@ namespace AzureAiPlayground.Pages.ViewModels
             return _tikaExtractor.Extract(path, filter);
         }
 
-        internal Task StartServices()
+        internal async Task StartServices()
         {
             _rawDocumentSimpleReader.Start();
-            _gpt35AiCleaner.Start();
-            return Task.CompletedTask;
+            await _gpt35AiCleaner.Start();
+            await _elasticIndexer.Start();
         }
     }
 }

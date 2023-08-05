@@ -1,5 +1,6 @@
 using AzureAiLibrary;
 using AzureAiLibrary.Configuration;
+using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.Jobs;
 using AzureAiLibrary.Helpers;
 using AzureAiPlayground.Pages.ViewModels;
@@ -28,6 +29,8 @@ builder.Services.AddMudMarkdownServices();
 
 builder.Services.AddSingleton<FolderDatabaseFactory>();
 builder.Services.AddSingleton<TemplateHelper>();
+var esservice = new ElasticSearchService(new Uri(documentsConfiguration.ElasticUrl));
+builder.Services.AddSingleton(esservice);
 builder.Services.AddSingleton<ITemplateManager, DefaultTemplateManager>();
 builder.Services.AddTransient<ChatViewModel>();
 
