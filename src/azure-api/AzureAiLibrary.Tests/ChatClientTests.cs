@@ -32,7 +32,7 @@ public class ChatClientTests
             BaseAddress = new Uri("https://your-base-api-url.com/")
         };
         httpClientFactoryMock.Setup(_ => _.CreateClient(It.IsAny<string>())).Returns(httpClient);
-        var azureConfigMock = new Mock<IOptionsMonitor<AzureOpenAiConfiguration>>();
+        var azureConfigMock = ConfigureAzureMock();
 
         var chatClient = new ChatClient(azureConfigMock.Object, httpClientFactoryMock.Object);
 
@@ -60,6 +60,24 @@ public class ChatClientTests
         Assert.Contains("The Lord of the Rings", response.Content);
     }
 
+    private static Mock<IOptionsMonitor<AzureOpenAiConfiguration>> ConfigureAzureMock()
+    {
+        var azureConfigMock = new Mock<IOptionsMonitor<AzureOpenAiConfiguration>>();
+        azureConfigMock.SetupGet(x => x.CurrentValue).Returns(new AzureOpenAiConfiguration()
+        {
+            Default = "test",
+            Endpoints = new List<Endpoint>
+            {
+                new Endpoint
+                {
+                    Name = "test",
+                    BaseAddress = "https://your-base-api-url.com/"
+                }
+            }
+        });
+        return azureConfigMock;
+    }
+
     [Fact]
     public async Task SendMessageAsync_ThrowsException_WhenApiCallFails()
     {
@@ -82,7 +100,7 @@ public class ChatClientTests
         {
             BaseAddress = new Uri("https://your-base-api-url.com/")
         };
-        var azureConfigMock = new Mock<IOptionsMonitor<AzureOpenAiConfiguration>>();
+        var azureConfigMock = ConfigureAzureMock();
         var chatClient = new ChatClient(azureConfigMock.Object, httpClientFactoryMock.Object);
         httpClientFactoryMock.Setup(_ => _.CreateClient(It.IsAny<string>())).Returns(httpClient);
 

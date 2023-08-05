@@ -78,7 +78,7 @@ public class ElasticSearchServiceTests : IDisposable
 
     private void AssertDenseVectorMapping(string vectorName, GetMappingResponse mappings, string suffix, int expectedDimension)
     {
-        var denseVector = mappings.Indices[_indexName].Mappings.Properties[$"{vectorName}_{suffix}"];
+        var denseVector = mappings.Indices[_indexName].Mappings.Properties[$"v_{vectorName}_{suffix}"];
         Assert.NotNull(denseVector);
         Assert.Equal("dense_vector", denseVector.Type);
         Assert.IsType<DenseVectorProperty>(denseVector);
