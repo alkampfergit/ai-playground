@@ -90,7 +90,8 @@ while True:
                 hasGptClean = (
                     'Gpt35PageInformation' in page and 
                     page['Gpt35PageInformation'] is not None and 
-                    'CleanText' in page['Gpt35PageInformation']
+                    'CleanText' in page['Gpt35PageInformation'] and 
+                    page['Gpt35PageInformation']['CleanText'] is not None
                 )
                 
                 if hasGptClean:
@@ -100,7 +101,7 @@ while True:
 
             # Print the number of pages being vectorized
             num_pages = len(pages_vector)
-            print(f"Vectorizing {num_pages} pages...")
+            print(f"Vectorizing {num_pages} pages and {len(pages_gpt35)} pages cleaned with GPT35.")
 
             # Vectorize the pages
             pages_vector = model.encode(pages_vector)
@@ -119,6 +120,8 @@ while True:
                     'PageNumber': i,
                     'Vector': pages_vector_normalized[i].tolist(),
                     'VectorGpt35': pages_gpt35_normalized[i].tolist(),
+                    'VectorNormalized': pages_vector_normalized[i].tolist(),
+                    'VectorGpt35Normalized': pages_gpt35_normalized[i].tolist(),
                     'Model': modelKey,
                     'CreatedOn': datetime.utcnow()
                 }

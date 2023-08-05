@@ -1,62 +1,66 @@
-using AzureAiLibrary.Documents;
 using Nest;
 using Serilog;
+using System.Collections;
 
-namespace AzureAiLibrary.Documents
+namespace AzureAiLibrary.Documents;
+
+[ElasticsearchType(IdProperty = "Id")]
+public class ElasticDocument : Dictionary<string, object>
 {
-    [ElasticsearchType(IdProperty = "Id")]
-    public class ElasticDocument : Dictionary<string, object>
+    public string Id { get; set; } = null!;
+
+    public string? Title
     {
-        public string Id { get; set; } = null!;
-
-        public string? Title
+        get
         {
-            get
-            {
-                return GetPropertyString("title");
-            }
-            set { AddProperty("title", value ?? string.Empty); }
+            return GetPropertyString("title");
         }
+        set { AddProperty("title", value ?? string.Empty); }
+    }
 
-        public ElasticDocument() : base(StringComparer.OrdinalIgnoreCase)
-        {
-        }
+    public ElasticDocument() : base(StringComparer.OrdinalIgnoreCase)
+    {
+    }
 
-        public ElasticDocument(string id) : this()
-        {
-            Id = id;
-        }
+    public ElasticDocument(string id) : this()
+    {
+        Id = id;
+    }
 
-        public ElasticDocument AddProperty(string key, string value)
-        {
-            this[$"s_{key}"] = value;
-            return this;
-        }
+    public ElasticDocument AddProperty(string key, string value)
+    {
+        this[$"s_{key}"] = value;
+        return this;
+    }
 
-        public string? GetPropertyString(string key)
-        {
-            return TryGetValue($"s_{key}", out var title) ? title as string : string.Empty;
-        }
+    public string? GetPropertyString(string key)
+    {
+        return TryGetValue($"s_{key}", out var title) ? title as string : string.Empty;
+    }
 
-        public float[] GetVector(string fieldName)
-        {
-            if (TryGetValue(fieldName, out var vector))
-            {
-                if (vector is IEnumerable<float> fv)
-                {
-                    return fv.ToArray();
-                }
-                //when reloaded elastic will generate a collection of object
-                if (vector is IEnumerable<object> ov)
-                {
-                    return ov.OfType<double>().Select(d => (float)d).ToArray();
-                }
-            }
+    public SingleDenseVectorData GetVector(string fieldName)
+    {
+        //TODO: refactor because it is duplicate code
+        var standardVectorProperty = $"v_{fieldName}_vector";
+        var standardNormalizedVectorProperty = $"v_{fieldName}_normalized_vector";
+        var gpt35VectorProperty = $"v_{fieldName}_gpt35_vector";
+        var gpt35NormalizedVectorProperty = $"v_{fieldName}_gpt35_normalized_vector";
 
-            return Array.Empty<float>();
-        }
+        return new SingleDenseVectorData(
+            Id,
+            fieldName,
+            GetVectorData(standardVectorProperty),
+            GetVectorData(standardNormalizedVectorProperty),
+            GetVectorData(gpt35VectorProperty),
+            GetVectorData(gpt35NormalizedVectorProperty));
+    }
+
+    private double[] GetVectorData(string standardVectorProperty)
+    {
+        return TryGetValue($"{standardVectorProperty}", out var rawVector) ? ((IEnumerable)rawVector).Cast<double>().ToArray() : Array.Empty<double>();
     }
 }
+
 
 public class ElasticSearchService
 {
@@ -104,7 +108,7 @@ public class ElasticSearchService
                      .Map<ElasticDocument>(m => m
                          .AutoMap()
                          .Properties(props => props
-                            .DenseVector(dv => dv.Name("bert").Dimensions(512)) //todo this should be added directly from adding vectors.
+                            //.DenseVector(dv => dv.Name("bert").Dimensions(512)) //todo this should be added directly from adding vectors.
                             .Text(dv => dv.Name(d => d.Title).Analyzer("english"))
                          )
                          //.RoutingField(r => r.Required())
@@ -282,6 +286,94 @@ public class ElasticSearchService
         return descriptor;
     }
 
+    private HashSet<string> _alreadyMappedDenseVectorField = new();
+
+    public async Task IndexDenseVectorAsync(string indexName, SingleDenseVectorData[] singleDenseVectorDatas)
+    {
+        if (singleDenseVectorDatas?.Length > 0)
+        {
+            var fieldName = singleDenseVectorDatas[0].fieldName;
+            var dimension = singleDenseVectorDatas[0].vectorData.Length;
+
+            //need to know if the vector was already mapped
+            var indexKey = $"{indexName}_{fieldName}";
+            if (!_alreadyMappedDenseVectorField.Contains(indexKey))
+            {
+                await EnsureMappingAsync(indexName, fieldName, dimension);
+                _alreadyMappedDenseVectorField.Add(indexKey);
+            }
+
+            //ok the dense vector is mapped, we need to create a bulk request
+            var bulk = new BulkDescriptor();
+
+            var standardVectorProperty = $"v_{fieldName}_vector";
+            var standardNormalizedVectorProperty = $"v_{fieldName}_normalized_vector";
+            var gpt35VectorProperty = $"v_{fieldName}_gpt35_vector";
+            var gpt35NormalizedVectorProperty = $"v_{fieldName}_gpt35_normalized_vector";
+
+            foreach (var vectorData in singleDenseVectorDatas)
+            {
+                bulk.Update<ElasticDocument>(u => u
+                     .Id(vectorData.id)
+                     .Index(indexName)
+                     .Script(s => s
+                         .Source($@"ctx._source.{standardVectorProperty} = params.standardVectorProperty; 
+ctx._source.{standardNormalizedVectorProperty} = params.standardNormalizedVectorProperty; 
+ctx._source.{gpt35VectorProperty} = params.gpt35VectorProperty; 
+ctx._source.{gpt35NormalizedVectorProperty} = params.gpt35NormalizedVectorProperty; ")
+                         .Params(p => p
+                             .Add("standardVectorProperty", vectorData.vectorData) // new value for foo as a dense vector
+                             .Add("standardNormalizedVectorProperty", vectorData.normalizedVectorData)
+                             .Add("gpt35VectorProperty", vectorData.gpt35VectorData)
+                             .Add("gpt35NormalizedVectorProperty", vectorData.gpt35NormalizedVectorData)
+                         )
+                     )
+                 );
+            }
+
+            var bulkUpdateResult = await _elasticClient.BulkAsync(bulk);
+            if (bulkUpdateResult.IsValid == false)
+            {
+                throw new Exception("Unable to update dense vector for index " + indexName);
+            }
+        }
+    }
+
+    private async Task EnsureMappingAsync(
+        string indexName,
+        string fieldName,
+        int dimension)
+    {
+        var request = new GetMappingRequest(indexName);
+
+        var mappings = await _elasticClient.Indices.GetMappingAsync(request);
+        if (mappings.IsValid == false)
+        {
+            throw new Exception("Unable to get mapping for index " + indexName);
+        }
+        var mapping = mappings.GetMappingFor(indexName);
+        if (mapping.Properties.ContainsKey(fieldName))
+        {
+            //TODO: Check for dimensions
+            return;
+        }
+
+        //ok we need to map the field
+        var mapResult = await _elasticClient.MapAsync<ElasticDocument>(
+            r => r.Index(indexName)
+                .Properties(p => p
+                    .DenseVector(d => d.Name($"v_{fieldName}_vector").Dimensions(dimension))
+                    .DenseVector(d => d.Name($"v_{fieldName}_normalized_vector").Dimensions(dimension))
+                    .DenseVector(d => d.Name($"v_{fieldName}_gpt35_vector").Dimensions(dimension))
+                    .DenseVector(d => d.Name($"v_{fieldName}_gpt35_normalized_vector").Dimensions(dimension)
+        )));
+
+        if (mapResult.IsValid == false)
+        {
+            throw new Exception("Unable to SET mapping for index " + indexName);
+        }
+    }
+
     public static Func<DynamicTemplateContainerDescriptor<ElasticDocument>, IPromise<IDynamicTemplateContainer>> MapDynamicProperties
     {
         get
@@ -326,3 +418,11 @@ public class ElasticSearchService
         }
     }
 }
+
+public record SingleDenseVectorData(
+    string id,
+    string fieldName,
+    double[] vectorData,
+    double[] normalizedVectorData,
+    double[] gpt35VectorData,
+    double[] gpt35NormalizedVectorData);

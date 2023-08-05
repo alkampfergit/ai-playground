@@ -39,6 +39,55 @@ public class ElasticSearchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task When_add_dense_vector_mapping_is_created()
+    {
+        var (vectorName, _, _) = await CreateIndexAndIndexDataWithVectors();
+
+        //Assert, we need to have a mapping for the dense index.
+        var request = new GetMappingRequest(_indexName);
+        var mappings = _elasticClient.Indices.GetMapping(request);
+
+        //Verify mapping
+        AssertDenseVectorMapping(vectorName, mappings, "vector", 512);
+        AssertDenseVectorMapping(vectorName, mappings, "normalized_vector", 512);
+        AssertDenseVectorMapping(vectorName, mappings, "gpt35_vector", 512);
+        AssertDenseVectorMapping(vectorName, mappings, "gpt35_normalized_vector", 512);
+
+        Assert.True(mappings.IsValid);
+    }
+
+    [Fact]
+    public async Task When_add_dense_vector_data_is_created()
+    {
+        var (vectorName, dataId, vectorData) = await CreateIndexAndIndexDataWithVectors();
+
+        //Assert: retrive the data and verify vectors are there
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, dataId);
+        Assert.NotNull(reloaded);
+
+        //ok we need now to access the vectors.
+        var vector = reloaded.GetVector(vectorName);
+        Assert.NotNull(vector);
+        Assert.IsType<SingleDenseVectorData>(vector);
+        var v = (SingleDenseVectorData)vector;
+        Assert.Equal(vectorData.vectorData, v.vectorData);
+        Assert.Equal(vectorData.normalizedVectorData, v.normalizedVectorData);
+        Assert.Equal(vectorData.gpt35VectorData, v.gpt35VectorData);
+        Assert.Equal(vectorData.gpt35NormalizedVectorData, v.gpt35NormalizedVectorData);
+    }
+
+    private void AssertDenseVectorMapping(string vectorName, GetMappingResponse mappings, string suffix, int expectedDimension)
+    {
+        var denseVector = mappings.Indices[_indexName].Mappings.Properties[$"{vectorName}_{suffix}"];
+        Assert.NotNull(denseVector);
+        Assert.Equal("dense_vector", denseVector.Type);
+        Assert.IsType<DenseVectorProperty>(denseVector);
+
+        var denseVectorProperty = (DenseVectorProperty)denseVector;
+        Assert.Equal(expectedDimension, denseVectorProperty.Dimensions);
+    }
+
+    [Fact]
     public async Task Can_index_a_dynamic()
     {
         await _sut.InitIndexAsync(_indexName);
@@ -63,43 +112,42 @@ public class ElasticSearchServiceTests : IDisposable
         Assert.Equal(data["s_metadata2"], reloaded["s_metadata2"]);
     }
 
-    [Fact]
-    public async Task Can_index_with_bert()
+    private async Task<(string vectorFieldName, string documentId, SingleDenseVectorData vectorData)> CreateIndexAndIndexDataWithVectors()
     {
+        //when the service is inited it should cretate a mapping
         await _sut.InitIndexAsync(_indexName);
 
+        //Arrange, save a document
         ElasticDocument data = new(Guid.NewGuid().ToString());
-        data["Title"] = "Test Title";
-        data["bert"] = GenerateRandomVector(512);
+        data.Title = "Test Title";
+        data["s_metadata1"] = "BLAAAA";
+        data["s_metadata2"] = "this is a test";
 
         var insert = await _sut.IndexAsync(_indexName, new ElasticDocument[] { data });
         Assert.True(insert, "Bulk insert did not work");
 
-        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, data.Id);
+        //Act: add a new dense vector.
+        var vectorName = "test_vector_" + Guid.NewGuid().ToString().Replace("-", "");
 
-        Assert.NotNull(reloaded);
-
-        //Assert equality
-        Assert.Equal(data.Id, reloaded.Id);
-
-        Assert.Equal(data["Title"], reloaded["Title"]);
-
-        float[] databert = data.GetVector("bert");
-        float[] reloadedbert = reloaded.GetVector("bert");
-
-        Assert.Equal(512, databert.Length);
-        Assert.Equal(512, reloadedbert.Length);
-
-        Assert.Equal(databert, reloadedbert);
+        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+                    data.Id,
+                    vectorName,
+                    vectorData: GenerateRandomVector(512),
+                    normalizedVectorData: GenerateRandomVector(512),
+                    gpt35NormalizedVectorData: GenerateRandomVector(512),
+                    gpt35VectorData: GenerateRandomVector(512));
+        SingleDenseVectorData[] vectorList = new SingleDenseVectorData[] { singleDenseVectorData };
+        await _sut.IndexDenseVectorAsync(_indexName, vectorList);
+        return (vectorName, data.Id, singleDenseVectorData);
     }
 
-    private float[] GenerateRandomVector(int dimension)
+    private double[] GenerateRandomVector(int dimension)
     {
         //Generate an array of dimension with random number
-        float[] retValue = new float[dimension];
+        double[] retValue = new double[dimension];
         for (int i = 0; i < dimension; i++)
         {
-            retValue[i] = _random.Next() / (float)_random.Next();
+            retValue[i] = _random.Next() / (double)_random.Next();
         }
 
         return retValue;
