@@ -22,7 +22,7 @@ dataclasses-json==0.5.8
 datasets==2.13.0
 debugpy==1.6.7
 decorator==5.1.1
-dill==0.3.1.1
+dill
 dnspython==2.3.0
 docopt==0.6.2
 elastic-transport==8.4.0
@@ -100,7 +100,7 @@ pypdf==3.12.2
 python-dateutil==2.8.2
 python-dotenv==1.0.0
 pytz==2023.3
-pywin32==306
+pywin32==306; sys_platform == 'win32'
 PyYAML==6.0
 pyzmq==25.1.0
 regex==2023.6.3
@@ -119,9 +119,9 @@ tenacity==8.2.2
 threadpoolctl==3.1.0
 tiktoken==0.4.0
 tokenizers==0.13.3
-torch==2.0.1+cu118
-torchaudio==2.0.2+cu118
-torchvision==0.15.2+cu118
+torch==2.0.1+cu118; sys_platform == 'win32'
+torchaudio==2.0.2+cu118; sys_platform == 'win32'
+torchvision==0.15.2+cu118; sys_platform == 'win32'
 tornado==6.3.2
 tqdm==4.65.0
 traitlets==5.9.0
