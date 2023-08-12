@@ -17,9 +17,9 @@ namespace AzureAiLibrary.Documents.Jobs
     {
         private readonly ChatClient _chatClient;
 
-        private ILogger _logger = Log.ForContext<Gpt35AiCleaner>();
+        private readonly ILogger _logger = Log.ForContext<Gpt35AiCleaner>();
 
-        private AsyncRetryPolicy _retryPolicy;
+        private readonly AsyncRetryPolicy _retryPolicy;
 
         protected override string PollerProperty => "CleanWithGpt35";
 
@@ -50,9 +50,9 @@ namespace AzureAiLibrary.Documents.Jobs
 
         private record TplMessage(DocumentPage Page, String Text);
 
-        private TransformBlock<MongoDocumentToIndex, IReadOnlyCollection<TplMessage>> _createBlock;
-        private IPropagatorBlock<IReadOnlyCollection<TplMessage>, TplMessage> _spreadBlock;
-        private ActionBlock<TplMessage> _translateBlock;
+        private TransformBlock<MongoDocumentToIndex, IReadOnlyCollection<TplMessage>>? _createBlock;
+        private IPropagatorBlock<IReadOnlyCollection<TplMessage>, TplMessage>? _spreadBlock;
+        private ActionBlock<TplMessage>? _translateBlock;
 
         private IReadOnlyCollection<TplMessage> CreateBlockToIndex(MongoDocumentToIndex rawDocument)
         {

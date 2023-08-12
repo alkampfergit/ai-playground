@@ -5,7 +5,7 @@ namespace AzureAiLibrary;
 
 public class Message
 {
-    private readonly StreamingChatCompletions _streamingChatCompletions;
+    private readonly StreamingChatCompletions? _streamingChatCompletions;
 
     public Message(string role, string content)
     {
@@ -30,18 +30,21 @@ public class Message
     {
         try
         {
-            using (_streamingChatCompletions)
+            if (_streamingChatCompletions != null)
             {
-                var streamingChoices = _streamingChatCompletions.GetChoicesStreaming(CancellationToken.None);
-
-                await foreach (StreamingChatChoice choice in streamingChoices)
+                using (_streamingChatCompletions)
                 {
-                    var messageEnumerable = choice.GetMessageStreaming();
-                    await foreach (ChatMessage message in messageEnumerable)
+                    var streamingChoices = _streamingChatCompletions.GetChoicesStreaming(CancellationToken.None);
+
+                    await foreach (StreamingChatChoice choice in streamingChoices)
                     {
-                        //update content and signal that the content changed.
-                        Content += message.Content;
-                        OnContentChanged();
+                        var messageEnumerable = choice.GetMessageStreaming();
+                        await foreach (ChatMessage message in messageEnumerable)
+                        {
+                            //update content and signal that the content changed.
+                            Content += message.Content;
+                            OnContentChanged();
+                        }
                     }
                 }
             }
@@ -68,16 +71,16 @@ public class Message
         return new Message("user", message);
     }
 
-    public event EventHandler ContentChanged;
+    public event EventHandler? ContentChanged;
 
-    public void OnContentChanged()
+    private void OnContentChanged()
     {
         ContentChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    [JsonPropertyName("role")] public string Role { get; set; }
+    [JsonPropertyName("role")] public string Role { get; set; } = null!;
 
-    [JsonPropertyName("content")] public string Content { get; set; }
+    [JsonPropertyName("content")] public string Content { get; set; }  = null!;
 
     public ChatRole GetChatRole()
     {

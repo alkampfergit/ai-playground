@@ -6,15 +6,22 @@ namespace AzureAiLibrary.Documents.Jobs
 {
     public abstract class BaseJob
     {
-        private IMongoCollection<MongoDocumentToIndex> _documentsToIndex;
-        private PollerHelper _poller;
+        private readonly IMongoCollection<MongoDocumentToIndex> _documentsToIndex;
+        private readonly PollerHelper _poller;
 
-        protected ILogger Logger;
+        protected readonly ILogger Logger;
 
-        public BaseJob(IMongoDatabase db)
+        protected BaseJob(IMongoDatabase db)
         {
             Logger = Log.ForContext(GetType());
             _documentsToIndex = db.GetCollection<MongoDocumentToIndex>("documents_to_index");
+
+            // ReSharper disable VirtualMemberCallInConstructor
+            if (PollerProperty == null)
+            {
+                throw new System.Exception("PollerProperty must be set in the derived class");
+            }
+
             _documentsToIndex.Indexes.CreateOne(
                 new CreateIndexModel<MongoDocumentToIndex>(
                     Builders<MongoDocumentToIndex>.IndexKeys.Ascending(PollerProperty),

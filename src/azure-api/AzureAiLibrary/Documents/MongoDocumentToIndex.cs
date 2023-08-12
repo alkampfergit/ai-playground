@@ -43,11 +43,11 @@ namespace AzureAiLibrary.Documents
 
         public int Number { get; set; }
 
-        public string Content { get; set; }
+        public string Content { get; set; } = null!;
 
         public bool Removed { get; set; }
 
-        public string OriginalContent { get; set; }
+        public string OriginalContent { get; set; } 
 
         /// <summary>
         /// cl100k_base is the algorithm used by GPT3.5 turbo to tokenize.
@@ -55,7 +55,5 @@ namespace AzureAiLibrary.Documents
         public int Cl100kBaseTokens { get; set; }
 
         public Gpt35PageInformation? Gpt35PageInformation { get; set; }
-
-        public double[] BertEmbedding { get; set; }
     }
 }

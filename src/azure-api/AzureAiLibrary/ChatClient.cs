@@ -27,6 +27,11 @@ public class ChatClient
     {
         var endpoint = _azureConfig.CurrentValue.GetEndpoint(deployName);
 
+        if (endpoint == null)
+        {
+            throw new Exception("Error in configuration - no endpoint found for endpoint name: " + deployName);
+        }
+
         OpenAIClient client = new OpenAIClient(
             new Uri(endpoint.BaseAddress),
             new AzureKeyCredential(Environment.GetEnvironmentVariable("AI_KEY")));
@@ -65,6 +70,10 @@ public class ChatClient
     {
         var requestBody = JsonSerializer.Serialize(chatRequest);
         var endpoint = _azureConfig.CurrentValue.GetEndpoint(httpClientName);
+        if (endpoint == null)
+        {
+            throw new Exception("Error in configuration - no endpoint found for endpoint name: " + httpClientName);
+        }
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint.Url)
         {
             Content = new StringContent(requestBody, Encoding.UTF8, "application/json")

@@ -34,7 +34,7 @@ namespace AzureAiLibrary.Helpers
             if (File.Exists(filePath)) File.Delete(filePath);
         }
 
-        public DatabaseEntry Load(string id)
+        public DatabaseEntry? Load(string id)
         {
             var filePath = Path.Combine(_databaseFolder, id + ".json");
             if (!File.Exists(filePath))
@@ -50,24 +50,25 @@ namespace AzureAiLibrary.Helpers
         {
             return Directory.GetFiles(_databaseFolder, "*.json")
                 .Select(file => JsonSerializer.Deserialize<DatabaseEntry>(File.ReadAllText(file)))
-                .Where(entry => entry.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+                .Where(entry => entry != null && entry.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                .ToList()!;
         }
 
         public List<DatabaseEntry> List()
         {
             return Directory.GetFiles(_databaseFolder, "*.json")
                 .Select(file => JsonSerializer.Deserialize<DatabaseEntry>(File.ReadAllText(file)))
-                .OrderByDescending(entry => entry.LastModified)
+                .Where(entry => entry != null)
+                .OrderByDescending(entry => entry!.LastModified)
                 .Take(20)
-                .ToList();
+                .ToList()!;
         }
 
         public class DatabaseEntry
         {
-            public string Id { get; set; }
-            public string Description { get; set; }
-            public T Record { get; set; }
+            public string Id { get; init; } = null!;
+            public string Description { get; init; }  = null!;
+            public T Record { get; init; } = null!;
             public DateTime LastModified { get; set; }
         }
     }

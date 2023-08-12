@@ -7,23 +7,23 @@ namespace AzureAiLibrary.Documents.Support
     {
         private readonly Func<Task> _callBack;
         private readonly string _pollerName;
-        private readonly Int32 PollingTimeInMs = 0;
+        private readonly Int32 _pollingTimeInMs = 0;
 
         private Int32 _pollerGate;
-        private Guid _instanceId = Guid.NewGuid();
+        private readonly Guid _instanceId = Guid.NewGuid();
 
-        public Boolean Stopped { get; private set; } = true;
+        private Boolean Stopped { get; set; } = true;
 
-        private Int64 NumOfRuns = 0;
+        private Int64 _numOfRuns = 0;
 
-        private CancellationTokenSource _stopCancellationToken;
+        private CancellationTokenSource _stopCancellationToken = null!;
 
         public PollerHelper(
             Func<Task> callBack,
             Int32 intervalInMilliseconds,
             String pollerName)
         {
-            PollingTimeInMs = intervalInMilliseconds;
+            _pollingTimeInMs = intervalInMilliseconds;
             _callBack = callBack;
             _pollerName = pollerName;
         }
@@ -58,7 +58,7 @@ namespace AzureAiLibrary.Documents.Support
             {
                 try
                 {
-                    await Task.Delay(PollingTimeInMs, _stopCancellationToken.Token);
+                    await Task.Delay(_pollingTimeInMs, _stopCancellationToken.Token);
                     await Poll();
                 }
                 catch (OperationCanceledException)
@@ -100,7 +100,7 @@ namespace AzureAiLibrary.Documents.Support
         {
             if (Interlocked.CompareExchange(ref _pollerGate, 1, 0) == 0)
             {
-                Interlocked.Increment(ref NumOfRuns);
+                Interlocked.Increment(ref _numOfRuns);
                 try
                 {
                     do

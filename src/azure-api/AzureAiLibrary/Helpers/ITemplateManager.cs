@@ -18,9 +18,9 @@ namespace AzureAiLibrary.Helpers
             _config = config;
         }
 
-        public string? GetTemplateContent(string templateName)
+        public string GetTemplateContent(string templateName)
         {
-            return _config.CurrentValue.GetTemplateContent(templateName);
+            return _config.CurrentValue.GetTemplateContent(templateName) ?? string.Empty;
         }
     }
 }

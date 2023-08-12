@@ -15,7 +15,7 @@ namespace AzureAiPlayground.Pages.ViewModels
 
     public class ChatViewModel
     {
-        public ChatUi ChatUi { get; set; }
+        public ChatUi ChatUi { get; set; } = null!;
 
         public string Description { get; set; } = "A Chat";
 
@@ -33,7 +33,7 @@ namespace AzureAiPlayground.Pages.ViewModels
         private readonly ChatClient _chatClient;
         private readonly IOptionsMonitor<AzureOpenAiConfiguration> _azureOpenAiConfiguration;
 
-        public string Id { get; set; }
+        public string Id { get; set; } = null!;
 
         public ChatViewModel(
             ChatClient chatClient,
@@ -48,7 +48,7 @@ namespace AzureAiPlayground.Pages.ViewModels
             SelectedEndpoint = azureOpenAiConfiguration.CurrentValue.GetDefaultEndpoint();
         }
         
-        public event EventHandler ContentChanged;
+        public event EventHandler? ContentChanged;
 
         public void OnContentChanged()
         {

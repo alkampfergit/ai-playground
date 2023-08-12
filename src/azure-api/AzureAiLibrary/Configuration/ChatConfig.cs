@@ -5,9 +5,9 @@
     /// </summary>
     public class ChatConfig
     {
-        public string DataDir { get; set; }
+        public string DataDir { get; set; }  = null!;
 
-        public string TemplateDir { get; set; }
+        public string TemplateDir { get; set; } = null!;
 
         /// <summary>
         /// Get content of template file.

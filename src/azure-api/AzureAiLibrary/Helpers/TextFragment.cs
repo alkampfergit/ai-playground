@@ -8,8 +8,8 @@ namespace AzureAiLibrary.Helpers
 {
     public class TextFragment
     {
-        public string Content { get; set; }
-        public bool IsCodeSnippet { get; set; }
-        public string Language { get; set; }
+        public string Content { get; init; } = null!;
+        public bool IsCodeSnippet { get; init; }
+        public string Language { get; init; } = null!;
     }
 }

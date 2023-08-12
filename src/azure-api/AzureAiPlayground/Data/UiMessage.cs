@@ -26,7 +26,7 @@ namespace AzureAiPlayground.Data
             OnContentChanged(); //propagate the event to signal that the content chagned
         }
 
-        public event EventHandler ContentChanged;
+        public event EventHandler? ContentChanged;
 
         public void OnContentChanged()
         {

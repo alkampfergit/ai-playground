@@ -123,30 +123,36 @@ namespace AzureAiLibrary.Documents
                 Logger.Information("About to extract tika content from {0} with commandline \"{1}\" {2}", pathToInputFile, _tikaLocation, arguments);
                 using (var p = Process.Start(psi))
                 {
-                    using var reader = p.StandardOutput;
-                    using var errorReader = p.StandardError;
-                    var cancellationToken = new CancellationTokenSource(10_000);
-
-                    ErrorStreamReader esr = new(cancellationToken.Token, errorReader);
-                    content = await reader.ReadToEndAsync(cancellationToken.Token);
-
-                    if (cancellationToken.IsCancellationRequested)
+                    if (p != null)
                     {
-                        //we have a timeout, ok we really need to kill the process and consider impossible to extract text from this file
-                        Logger.Error("Tika timeout reached, we need to kill the process");
-                        p.Kill();
-                    }
+                        using var reader = p.StandardOutput;
+                        using var errorReader = p.StandardError;
+                        var cancellationToken = new CancellationTokenSource(10_000);
 
-                    //need to check if the exit code is ok.
-                    if (p.ExitCode == 0)
-                    {
-                        return CreateExtractedData(content);
-                    }
+                        ErrorStreamReader esr = new(cancellationToken.Token, errorReader);
+                        content = await reader.ReadToEndAsync(cancellationToken.Token);
 
-                    Logger.Error("failed extracting with {0} exit code {1}", _tikaLocation, p.ExitCode);
-                    await esr.ReadingTask;
-                    return new TikaExtractedData(null, null, esr.Errors, false);
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            //we have a timeout, ok we really need to kill the process and consider impossible to extract text from this file
+                            Logger.Error("Tika timeout reached, we need to kill the process");
+                            p.Kill();
+                        }
+
+                        //need to check if the exit code is ok.
+                        if (p.ExitCode == 0)
+                        {
+                            return CreateExtractedData(content);
+                        }
+
+                        Logger.Error("failed extracting with {0} exit code {1}", _tikaLocation, p.ExitCode);
+                        await esr.ReadingTask;
+                        return new TikaExtractedData(null, null, esr.Errors, false);
+                    }
                 }
+                
+                //no process was created
+                return new TikaExtractedData(null, null, "No tika process created", false);
             }
             catch (Exception ex)
             {
@@ -178,17 +184,15 @@ namespace AzureAiLibrary.Documents
 
         private class ErrorStreamReader
         {
-            private Task _task;
+            public Task ReadingTask { get; }
 
-            public Task ReadingTask => _task;
-
-            public string Errors { get; private set; }
+            public string? Errors { get; private set; }
 
             public ErrorStreamReader(
                 CancellationToken token,
                 StreamReader errorReader)
             {
-                _task = Task.Run(() => ReadToEndAsync(token, errorReader));
+                ReadingTask = Task.Run(() => ReadToEndAsync(token, errorReader));
             }
 
             private async Task ReadToEndAsync(

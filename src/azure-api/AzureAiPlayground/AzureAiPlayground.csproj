@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="1.0.0-beta.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0-preview.7.23375.6" />
     <PackageReference Include="MongoDB.Driver" Version="2.20.0" />
     <PackageReference Include="MudBlazor" Version="6.2.0" />
     <PackageReference Include="MudBlazor.Markdown" Version="0.1.0" />
@@ -27,6 +28,10 @@
     <None Update="SampleData\SampleAnswer.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="~\data\chatdb\ChatUi\c98629a7-9b7a-4780-a628-c71291950e32.json" />
   </ItemGroup>
 
 </Project>

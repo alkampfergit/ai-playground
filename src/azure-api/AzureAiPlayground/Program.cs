@@ -17,6 +17,8 @@ var logConfiguration = new LoggerConfiguration()
 
 Log.Logger = logConfiguration.CreateLogger();
 
+builder.Configuration.ConfigureOverrideFile();
+
 var chatConfig = builder.Services.ConfigureSetting<ChatConfig>(builder.Configuration, "chatConfig");
 var azureOpenAiConfiguration = builder.Services.ConfigureSetting<AzureOpenAiConfiguration>(builder.Configuration, "AzureOpenAiConfiguration");
 var documentsConfiguration = builder.Services.ConfigureSetting<DocumentsConfig>(builder.Configuration, "Documents");

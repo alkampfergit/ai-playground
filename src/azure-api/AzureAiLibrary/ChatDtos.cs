@@ -6,7 +6,7 @@ namespace AzureAiLibrary;
 
 public class ApiPayload
 {
-    [JsonPropertyName("messages")] public List<Message> Messages { get; set; }
+    [JsonPropertyName("messages")] public List<Message> Messages { get; set; } = null!;
 
     [JsonPropertyName("temperature")] public double Temperature { get; set; }
 
@@ -19,31 +19,31 @@ public class ApiPayload
 
     [JsonPropertyName("max_tokens")] public int MaxTokens { get; set; }
 
-    [JsonPropertyName("stop")] public string Stop { get; set; }
+    [JsonPropertyName("stop")] public string? Stop { get; set; }
 }
 
 public class ApiResponse
 {
-    [JsonPropertyName("id")] public string Id { get; set; }
+    [JsonPropertyName("id")] public string Id { get; set; }  = null!;
 
-    [JsonPropertyName("object")] public string Object { get; set; }
+    [JsonPropertyName("object")] public string Object { get; set; }  = null!;
 
-    [JsonPropertyName("created")] public long Created { get; set; }
+    [JsonPropertyName("created")] public long Created { get; set; } 
 
-    [JsonPropertyName("model")] public string Model { get; set; }
+    [JsonPropertyName("model")] public string Model { get; set; } = null!;
 
-    [JsonPropertyName("choices")] public List<Choice> Choices { get; set; }
+    [JsonPropertyName("choices")] public List<Choice> Choices { get; set; } = null!;
 
-    [JsonPropertyName("usage")] public Usage Usage { get; set; }
+    [JsonPropertyName("usage")] public Usage Usage { get; set; } = null!;
 }
 
 public class Choice
 {
     [JsonPropertyName("index")] public int Index { get; set; }
 
-    [JsonPropertyName("finish_reason")] public string FinishReason { get; set; }
+    [JsonPropertyName("finish_reason")] public string FinishReason { get; set; } = null!;
 
-    [JsonPropertyName("message")] public Message Message { get; set; }
+    [JsonPropertyName("message")] public Message Message { get; set; } = null!;
 }
 
 public class Usage
