@@ -48,7 +48,7 @@ namespace AzureAiLibrary.Documents.Jobs
             _spreadBlock.LinkTo(_translateBlock, new DataflowLinkOptions() { PropagateCompletion = true });
         }
 
-        private record TplMessage(DocumentPage Page, String Text);
+        private record TplMessage(DocumentPage Page, String Text, MongoDocumentToIndex document);
 
         private TransformBlock<MongoDocumentToIndex, IReadOnlyCollection<TplMessage>>? _createBlock;
         private IPropagatorBlock<IReadOnlyCollection<TplMessage>, TplMessage>? _spreadBlock;
@@ -82,7 +82,7 @@ namespace AzureAiLibrary.Documents.Jobs
 
                 //now I have the text I need to clean with gpt
                 Logger.Debug("Page {pageNum} will be cleaned with GPT35", page.Number, totalPages);
-                retValue.Add(new TplMessage(page, text.ToString()));
+                retValue.Add(new TplMessage(page, text.ToString(), rawDocument));
             }
             return retValue;
         }
@@ -97,8 +97,15 @@ namespace AzureAiLibrary.Documents.Jobs
         {
             try
             {
-                _logger.Information("AiCleaner processing page {page}", message.Page.Number);
-                message.Page.Gpt35PageInformation = await _retryPolicy.ExecuteAsync(() => CleanPage(message.Text.ToString()));
+                if (message.Page.Gpt35PageInformation?.IsValid() != true)
+                {
+                    _logger.Information("AiCleaner processing page {page} on a total of {total} for document {document}", message.Page.Number, message.document.Pages.Count, message.document.Id);
+                    message.Page.Gpt35PageInformation = await _retryPolicy.ExecuteAsync(() => CleanPage(message.Text));
+                }
+                else
+                {
+                    _logger.Information("AiCleaner skipped because already processed page {page} for document {document}", message.Page.Number, message.documentId);
+                }
             }
             catch (Exception ex)
             {
@@ -155,11 +162,14 @@ Text Follows
             };
             var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             var response = await _chatClient.SendMessageAsync("gpt35", payload, timeout.Token);
-            if (response != null)
+            if (response?.Content != null)
             {
                 try
                 {
-                    var deserialized = JsonSerializer.Deserialize<Gpt35PageInformation>(response.Content)!;
+                    var content = response.Content;
+                    //sometimes gpt returns a json malformed, a trailing comma after the links property
+                    content = content.Replace("\"Links\": [],", "\"Links\": []");
+                    var deserialized = JsonSerializer.Deserialize<Gpt35PageInformation>(content)!;
                     if (deserialized?.Links?.Any() == true)
                     {
                         deserialized.Links = deserialized.Links.Distinct().ToList(); //gpt tends to repeat links
@@ -198,6 +208,11 @@ Text Follows
                 Ner = new List<string>(),
                 Links = new List<string>(),
             };
+        }
+
+        internal bool IsValid()
+        {
+            return String.IsNullOrEmpty(ErrorMessage) && !string.IsNullOrEmpty(CleanText);
         }
     }
 }

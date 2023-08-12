@@ -30,6 +30,8 @@ namespace AzureAiLibrary.Documents.Jobs
             //This simply insert document into elastic, we should batch insertion but for
             //this POC we can index one by one.
             List<ElasticDocument> pages = new List<ElasticDocument>();
+            List<SingleDenseVectorData> vectors = new List<SingleDenseVectorData>();
+
             Logger.Information("About to index in elastic {document}", rawDocument.Id);
 
             var allEmbeddings = _embeddingCollection
@@ -50,18 +52,56 @@ namespace AzureAiLibrary.Documents.Jobs
                 {
                     elasticDocument.AddTextProperty("gpt35content", page.Gpt35PageInformation.CleanText);
                     elasticDocument.AddTextProperty("code", page.Gpt35PageInformation.Code);
-                    //Add support for array property and add NER.
+
+                    if (page.Gpt35PageInformation.Ner?.Count > 0)
+                    {
+                        elasticDocument.AddStringProperty("ner", page.Gpt35PageInformation.Ner);
+                    }
+
+                    elasticDocument.AddTextProperty("code", page.Gpt35PageInformation.Code);
                 }
 
-                if (allEmbeddings.TryGetValue(page.Number, out var embedding)) 
+                //Ok we need to add all embeddings.
+                if (allEmbeddings.TryGetValue(page.Number, out var pageEmbeddings))
                 {
-                //TODO INDEX
+                    foreach (var embedding in pageEmbeddings)
+                    {
+                        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+                            Id: pageId,
+                            FieldName: embedding.Model,
+                            VectorData: embedding.Vector.ToArray(),
+                            NormalizedVectorData: embedding.VectorNormalized.ToArray(),
+                            Gpt35VectorData: embedding.VectorGpt35.ToArray(),
+                            Gpt35NormalizedVectorData: embedding.VectorGpt35Normalized.ToArray()
+                        );
+                        vectors.Add(singleDenseVectorData);
+                    }
                 }
 
                 pages.Add(elasticDocument);
             }
 
             await _elasticSearchService.IndexAsync(IndexName, pages);
+            Logger.Information("Indexed document {documentId} with {pages} pages", rawDocument.Id, pages.Count);
+
+            //now index all dense vectors in blocks
+            if (vectors.Count > 0)
+            {
+                var batchSize = 50;
+                var vectorsPerId = vectors.GroupBy(v => v.Id)
+                     .ToDictionary(g => g.Key, g => g.ToList());
+                int total = 0;
+
+                var startIndex = 0;
+                while (startIndex < vectors.Count)
+                {
+                    var batch = vectors.Skip(startIndex).Take(batchSize).ToList();
+                    await _elasticSearchService.IndexDenseVectorAsync(IndexName, batch.ToArray());
+                    total += batch.Count;
+                    Logger.Information("Indexed {batchSize} vectors on a total of {total} for document {documentId}", total, vectors.Count, rawDocument.Id);
+                    startIndex += batchSize;
+                }
+            }
             Logger.Information("Indexed in elastic with {pages} pages - document id {document}", pages.Count, rawDocument.Id);
         }
     }

@@ -34,7 +34,19 @@ public class ElasticDocument : Dictionary<string, object>
     /// <returns></returns>
     public ElasticDocument AddStringProperty(string key, string value)
     {
-        this[$"s_{key}"] = value;
+        AddStringProperty(key, new string[] { value });
+        return this;
+    }
+
+    /// <summary>
+    /// USed for metadata, id...
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="values"></param>
+    /// <returns></returns>
+    public ElasticDocument AddStringProperty(string key, IEnumerable<string> values)
+    {
+        this[$"s_{key}"] = values;
         return this;
     }
 

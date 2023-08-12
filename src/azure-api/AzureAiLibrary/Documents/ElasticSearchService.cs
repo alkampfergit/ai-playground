@@ -1,5 +1,7 @@
-﻿using Nest;
+﻿using MongoDB.Driver.Core.Operations;
+using Nest;
 using Serilog;
+using System.Text;
 
 namespace AzureAiLibrary.Documents;
 
@@ -102,7 +104,6 @@ public class ElasticSearchService
             Logger.Error($"Unable to bulk insert nodes: {result.ItemsWithErrors.Count()} items were not saved correctly on a total of {documents.Count}. {result.ServerError} {result.DebugInformation}", result.OriginalException);
 
             //todo: better error message, better error handling
-
         }
 
         return result.IsValid;
@@ -234,45 +235,49 @@ public class ElasticSearchService
 
     private HashSet<string> _alreadyMappedDenseVectorField = new();
 
+    private Func<string, string> standardVectorProperty = fieldName => $"v_{fieldName}_vector";
+    private Func<string, string> standardNormalizedVectorProperty = fieldName => $"v_{fieldName}_normalized_vector";
+    private Func<string, string> gpt35VectorProperty = fieldName => $"v_{fieldName}_gpt35_vector";
+    private Func<string, string> gpt35NormalizedVectorProperty = fieldName => $"v_{fieldName}_gpt35_normalized_vector";
+
     public async Task IndexDenseVectorAsync(string indexName, SingleDenseVectorData[] singleDenseVectorDatas)
     {
         if (singleDenseVectorDatas?.Length > 0)
         {
-            var fieldName = singleDenseVectorDatas[0].fieldName;
-            var dimension = singleDenseVectorDatas[0].vectorData.Length;
+            var allVectorDatas = singleDenseVectorDatas
+                .GroupBy(d => d.FieldName)
+                .Select(d => new  {
+                    FieldName = d.ElementAt(0).FieldName, 
+                    Length = d.ElementAt(0).VectorData.Length
+                }).ToArray();
 
-            //need to know if the vector was already mapped
-            var indexKey = $"{indexName}_{fieldName}";
-            if (!_alreadyMappedDenseVectorField.Contains(indexKey))
+            //Map everything that is in the call.
+            foreach (var fieldInformation in allVectorDatas)
             {
-                await EnsureMappingAsync(indexName, fieldName, dimension);
-                _alreadyMappedDenseVectorField.Add(indexKey);
+                var fieldName = fieldInformation.FieldName;
+                var dimension = fieldInformation.Length;
+
+                //need to know if the vector was already mapped
+                var indexKey = $"{indexName}_{fieldName}";
+                if (!_alreadyMappedDenseVectorField.Contains(indexKey))
+                {
+                    await EnsureMappingAsync(indexName, fieldName, dimension);
+                    _alreadyMappedDenseVectorField.Add(indexKey);
+                }
             }
 
             //ok the dense vector is mapped, we need to create a bulk request
             var bulk = new BulkDescriptor();
 
-            var standardVectorProperty = $"v_{fieldName}_vector";
-            var standardNormalizedVectorProperty = $"v_{fieldName}_normalized_vector";
-            var gpt35VectorProperty = $"v_{fieldName}_gpt35_vector";
-            var gpt35NormalizedVectorProperty = $"v_{fieldName}_gpt35_normalized_vector";
-
-            foreach (var vectorData in singleDenseVectorDatas)
+            foreach (var vectorData in singleDenseVectorDatas.GroupBy(d => d.Id))
             {
+                //ok we can have more than one dense vector for each id.
                 bulk.Update<ElasticDocument>(u => u
-                     .Id(vectorData.id)
+                     .Id(vectorData.Key)
                      .Index(indexName)
                      .Script(s => s
-                         .Source($@"ctx._source.{standardVectorProperty} = params.standardVectorProperty; 
-ctx._source.{standardNormalizedVectorProperty} = params.standardNormalizedVectorProperty; 
-ctx._source.{gpt35VectorProperty} = params.gpt35VectorProperty; 
-ctx._source.{gpt35NormalizedVectorProperty} = params.gpt35NormalizedVectorProperty; ")
-                         .Params(p => p
-                             .Add("standardVectorProperty", vectorData.vectorData) // new value for foo as a dense vector
-                             .Add("standardNormalizedVectorProperty", vectorData.normalizedVectorData)
-                             .Add("gpt35VectorProperty", vectorData.gpt35VectorData)
-                             .Add("gpt35NormalizedVectorProperty", vectorData.gpt35NormalizedVectorData)
-                         )
+                         .Source(CreateSourceUpdate(vectorData.Select(d => d.FieldName).Distinct()))
+                         .Params(AddParams(vectorData))
                      )
                  );
             }
@@ -280,9 +285,38 @@ ctx._source.{gpt35NormalizedVectorProperty} = params.gpt35NormalizedVectorProper
             var bulkUpdateResult = await _elasticClient.BulkAsync(bulk);
             if (bulkUpdateResult.IsValid == false)
             {
-                throw new Exception("Unable to update dense vector for index " + indexName);
+                throw new Exception("Unable to update dense vector for index " + indexName + " " + bulkUpdateResult.DebugInformation);
             }
         }
+    }
+
+    private Dictionary<string, object> AddParams(IGrouping<string, SingleDenseVectorData> vectorData)
+    {
+        var ret = new Dictionary<string, object>();
+        foreach (var vector in vectorData)
+        {
+            ret.Add($"standardVectorProperty{vector.FieldName}", vector.VectorData); // new value for foo as a dense vector
+            ret.Add($"standardNormalizedVectorProperty{vector.FieldName}", vector.NormalizedVectorData);
+            ret.Add($"gpt35VectorProperty{vector.FieldName}", vector.Gpt35VectorData);
+            ret.Add($"gpt35NormalizedVectorProperty{vector.FieldName}", vector.Gpt35NormalizedVectorData);
+        }
+
+        return ret;
+    }
+
+    private string CreateSourceUpdate(IEnumerable<string> fieldNames)
+    {
+        StringBuilder sb = new StringBuilder(500);
+        foreach (var fieldName in fieldNames)
+        {
+            sb.Append($@"ctx._source.{standardVectorProperty(fieldName)} = params.standardVectorProperty{fieldName}; 
+ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNormalizedVectorProperty{fieldName}; 
+ctx._source.{gpt35VectorProperty(fieldName)} = params.gpt35VectorProperty{fieldName}; 
+ctx._source.{gpt35NormalizedVectorProperty(fieldName)} = params.gpt35NormalizedVectorProperty{fieldName};
+");
+        }
+
+        return sb.ToString();
     }
 
     private async Task EnsureMappingAsync(
