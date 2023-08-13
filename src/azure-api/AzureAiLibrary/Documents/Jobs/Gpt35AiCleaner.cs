@@ -104,7 +104,7 @@ namespace AzureAiLibrary.Documents.Jobs
                 }
                 else
                 {
-                    _logger.Information("AiCleaner skipped because already processed page {page} for document {document}", message.Page.Number, message.documentId);
+                    _logger.Information("AiCleaner skipped because already processed page {page} for document {document}", message.Page.Number, message.document.Id);
                 }
             }
             catch (Exception ex)
