@@ -13,14 +13,13 @@ namespace AzureAiLibrary.Documents
     /// </summary>
     public class RawDocumentSimpleReader
     {
-        private ILogger Logger = Log.ForContext<TikaExtractor>();
-        private IMongoCollection<MongoRawDocument> _rawDocuments;
-        private IMongoCollection<MongoDocumentToIndex> _documentsToIndex;
-        private TikToken _tikTokTokenizer;
-        private PollerHelper _poller;
+        private readonly ILogger Logger = Log.ForContext<TikaExtractor>();
+        private readonly IMongoCollection<MongoRawDocument> _rawDocuments;
+        private readonly IMongoCollection<MongoDocumentToIndex> _documentsToIndex;
+        private readonly TikToken _tikTokTokenizer;
+        private readonly PollerHelper _poller;
 
-        public RawDocumentSimpleReader(
-            IMongoDatabase db)
+        public RawDocumentSimpleReader(IMongoDatabase db)
         {
             _rawDocuments = db.GetCollection<MongoRawDocument>("raw_documents");
             _documentsToIndex = db.GetCollection<MongoDocumentToIndex>("documents_to_index");

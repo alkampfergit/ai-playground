@@ -48,5 +48,10 @@ namespace AzureAiPlayground.Pages.ViewModels
             await _gpt35AiCleaner.Start();
             await _elasticIndexer.Start();
         }
+
+        internal async Task QueueEmbeddingInPython(string model) 
+        {
+            
+        }
     }
 }

@@ -29,6 +29,10 @@ namespace AzureAiLibrary.Documents
 
         public string CleanWithGpt35Errors { get; set; } = "";
 
+        public DateTime? Embedding { get; set; }
+
+        public string? EmbeddingModel { get; set; }
+
         #endregion
     }
 

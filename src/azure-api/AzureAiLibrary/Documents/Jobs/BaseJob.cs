@@ -1,4 +1,5 @@
 ﻿using AzureAiLibrary.Documents.Support;
+using AzureAiLibrary.Helpers;
 using MongoDB.Driver;
 using Serilog;
 
@@ -6,7 +7,7 @@ namespace AzureAiLibrary.Documents.Jobs
 {
     public abstract class BaseJob
     {
-        private readonly IMongoCollection<MongoDocumentToIndex> _documentsToIndex;
+        protected readonly IMongoCollection<MongoDocumentToIndex> _documentsToIndex;
         private readonly PollerHelper _poller;
 
         protected readonly ILogger Logger;
@@ -105,6 +106,19 @@ namespace AzureAiLibrary.Documents.Jobs
         public Task StopAsync()
         {
             return _poller.StopAsync(true);
+        }
+
+        /// <summary>
+        /// Some jobs usually need to update a single page of a document because maybe the time needed to 
+        /// manipulate one page is high or costly so we do not wait to waste time waiting for all the pages
+        /// to be completed before completely saving the document.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="page"></param>
+        /// <returns></returns>
+        protected Task UpdateSinglePage(string id, DocumentPage page)
+        {
+            return _documentsToIndex.UpdateSinglePage(id, page);
         }
     }
 }

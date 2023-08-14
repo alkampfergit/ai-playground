@@ -1,4 +1,5 @@
-﻿using MongoDB.Driver;
+﻿using AzureAiLibrary.Helpers;
+using MongoDB.Driver;
 using Polly;
 using Polly.Retry;
 using Serilog;
@@ -97,10 +98,22 @@ namespace AzureAiLibrary.Documents.Jobs
         {
             try
             {
+                //Some situation deemed not to worth cleaning
+                if (!PageNeedsToBeCleaned(message.Text))
+                {
+                    message.Page.Gpt35PageInformation = Gpt35PageInformation.ForEmptyContent();
+                    return;
+                }
                 if (message.Page.Gpt35PageInformation?.IsValid() != true)
                 {
                     _logger.Information("AiCleaner processing page {page} on a total of {total} for document {document}", message.Page.Number, message.document.Pages.Count, message.document.Id);
                     message.Page.Gpt35PageInformation = await _retryPolicy.ExecuteAsync(() => CleanPage(message.Text));
+
+                    //we want to immediately update, so we do not wait for the whole document to be processed
+                    if (message.Page.Gpt35PageInformation != null)
+                    {
+                        await _documentsToIndex.UpdateSinglePageGpt35Information(message.document.Id, message.Page.Number, message.Page.Gpt35PageInformation);
+                    }
                 }
                 else
                 {
@@ -114,17 +127,22 @@ namespace AzureAiLibrary.Documents.Jobs
             }
         }
 
+        private bool PageNeedsToBeCleaned(string text)
+        {
+            return !String.IsNullOrEmpty(text);
+        }
+
         protected override async Task InnerPerformTask(MongoDocumentToIndex rawDocument)
         {
             Logger.Information("About to clean {docId} with GPT3.5", rawDocument.Id);
             CreateTplFlow();
             rawDocument.CleanWithGpt35Errors = "";
-            _createBlock.Post(rawDocument);
+            _createBlock!.Post(rawDocument);
 
             //now I simply need to wait for all the block to finish.
-            _createBlock.Complete();
+            _createBlock!.Complete();
 
-            await _translateBlock.Completion;
+            await _translateBlock!.Completion;
 
             Logger.Information("Finished cleanning {docId} with GPT3.5", rawDocument.Id);
         }
@@ -169,11 +187,14 @@ Text Follows
                     var content = response.Content;
                     //sometimes gpt returns a json malformed, a trailing comma after the links property
                     content = content.Replace("\"Links\": [],", "\"Links\": []");
+                    content = content.TrimEnd('\"'); //sometimes gpt returns a trailing "" 
                     var deserialized = JsonSerializer.Deserialize<Gpt35PageInformation>(content)!;
                     if (deserialized?.Links?.Any() == true)
                     {
                         deserialized.Links = deserialized.Links.Distinct().ToList(); //gpt tends to repeat links
                     }
+
+                    return deserialized;
                 }
                 catch (Exception ex)
                 {
@@ -198,6 +219,17 @@ Text Follows
         public bool Failed { get; set; }
 
         public string? ErrorMessage { get; set; }
+
+        internal static Gpt35PageInformation? ForEmptyContent()
+        {
+            return new Gpt35PageInformation()
+            {
+                Failed = false,
+                Ner = new List<string>(),
+                Links = new List<string>(),
+                CleanText = ""
+            };
+        }
 
         internal static Gpt35PageInformation? ForError(string message)
         {

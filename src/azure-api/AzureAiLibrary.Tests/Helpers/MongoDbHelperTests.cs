@@ -5,32 +5,8 @@ using MongoDB.Driver;
 
 namespace AzureAiLibrary.Tests.Helpers
 {
-    public class MongoDbHelperTests : IDisposable
+    public class MongoDbHelperTests : DatabaseTestClass
     {
-        private MongoClient _client;
-        private IMongoDatabase _db;
-        private IMongoCollection<MongoDocumentToIndex> _collection;
-
-        public MongoDbHelperTests()
-        {
-            var connection = Environment.GetEnvironmentVariable("TEST_MONGODB");
-            var mongoUrlBuilder = new MongoDB.Driver.MongoUrlBuilder(connection);
-            if (!string.IsNullOrEmpty(mongoUrlBuilder.Username))
-            {
-                //well we have a login 
-                mongoUrlBuilder.AuthenticationSource = "admin";
-            }
-            mongoUrlBuilder.DatabaseName = "Azure_ai_library_test_" + Guid.NewGuid().ToString();
-            _client = new MongoClient(mongoUrlBuilder.ToMongoUrl());
-            _db = _client.GetDatabase(mongoUrlBuilder.DatabaseName);
-            _collection = _db.GetCollection<MongoDocumentToIndex>("documents");
-        }
-
-        public void Dispose()
-        {
-            _client.DropDatabase(_db.DatabaseNamespace.DatabaseName);
-        }
-
         [Fact]
         public void CanSave_single_page()
         {
@@ -43,14 +19,14 @@ namespace AzureAiLibrary.Tests.Helpers
                     new DocumentPage(2, false, "this is the original content"),
                 }
             };
-            _collection.InsertOne(document);
+            _documentToIndexCollection.InsertOne(document);
 
             //Act update only page 2
             document.Pages[1].Content = "this is a new content in page 2";
-            _collection.UpdateSinglePage(document.Id, document.Pages[1]);
+            _documentToIndexCollection.UpdateSinglePage(document.Id, document.Pages[1]);
 
             //Assert verify that everything is allright
-            var result = _collection.Find(x => x.Id == document.Id).FirstOrDefault();
+            var result = _documentToIndexCollection.Find(x => x.Id == document.Id).FirstOrDefault();
             Assert.Equal("this is a new content in page 2", result.Pages[1].Content);
             Assert.Equal("this is the original content", result.Pages[1].OriginalContent);
 
@@ -70,7 +46,7 @@ namespace AzureAiLibrary.Tests.Helpers
                     new DocumentPage(2, false, "this is a content in page 2"),
                 }
             };
-            _collection.InsertOne(document);
+            _documentToIndexCollection.InsertOne(document);
 
             //Act update only page 2
             var gpt35Info = new Gpt35PageInformation()
@@ -79,10 +55,10 @@ namespace AzureAiLibrary.Tests.Helpers
                 Code = "code",
                 Ner = new List<string> { "bla", "Bleh" }
             };
-            _collection.UpdateSinglePageGpt35Information(document.Id, document.Pages[1].Number, gpt35Info);
+            _documentToIndexCollection.UpdateSinglePageGpt35Information(document.Id, document.Pages[1].Number, gpt35Info);
 
             //Assert verify that everything is allright
-            var result = _collection.Find(x => x.Id == document.Id).FirstOrDefault();
+            var result = _documentToIndexCollection.Find(x => x.Id == document.Id).FirstOrDefault();
             var gpt35InfoResult = result.Pages[1].Gpt35PageInformation;
             Assert.Equal(gpt35Info.CleanText, gpt35InfoResult.CleanText);
             Assert.Equal(gpt35Info.Code, gpt35InfoResult.Code);
