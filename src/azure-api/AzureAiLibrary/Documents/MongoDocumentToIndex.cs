@@ -33,6 +33,8 @@ namespace AzureAiLibrary.Documents
 
         public string? EmbeddingModel { get; set; }
 
+        public string? EmbeddingModelKey { get; set; }
+
         #endregion
     }
 

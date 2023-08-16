@@ -20,7 +20,7 @@ namespace AzureAiLibrary.Documents
         /// <param name="id"></param>
         /// <param name="embeddingModel"></param>
         /// <returns></returns>
-        public async Task QueueForEmbedding(string? id, string embeddingModel)
+        public async Task QueueForEmbedding(string? id, string embeddingModel, string embeddingModelKey)
         {
             //need to set processing to false and CleanWithGpt35 to datetime.utcnow for specified document
             FilterDefinition<MongoDocumentToIndex> filter;
@@ -35,7 +35,8 @@ namespace AzureAiLibrary.Documents
             var update = Builders<MongoDocumentToIndex>.Update
                 .Set(x => x.Processing, false)
                 .Set(x => x.Embedding, DateTime.UtcNow)
-                .Set(x => x.EmbeddingModel, embeddingModel);
+                .Set(x => x.EmbeddingModel, embeddingModel)
+                .Set(x => x.EmbeddingModelKey, embeddingModelKey);
 
             var documentSerializer = BsonSerializer.SerializerRegistry.GetSerializer<MongoDocumentToIndex>();
             var query = filter.Render(documentSerializer, BsonSerializer.SerializerRegistry);

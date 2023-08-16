@@ -1,0 +1,1 @@
+db.getCollection('documents_to_index').find({Embedding : {$gt : ISODate("2000-01-01")}}).count()

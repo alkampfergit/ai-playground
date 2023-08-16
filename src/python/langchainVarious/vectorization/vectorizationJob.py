@@ -84,7 +84,12 @@ while True:
             # add the Content property
             pages_vector = []
             pages_gpt35 = []
-            for page in pages:
+            missing_gpt35_indexes = []
+
+            num_pages = len(pages)
+            num_pages_gpt35 = 0
+            for i in range(num_pages):
+                page = pages[i]
                 pages_vector.append(page['Content'])
                 
                 hasGptClean = (
@@ -96,14 +101,16 @@ while True:
                 
                 if hasGptClean:
                     pages_gpt35.append(page['Gpt35PageInformation']['CleanText']) 
+                    num_pages_gpt35 += 1
                 else:
-                    pages_gpt35.append('')               
+                    pages_gpt35.append('') 
+                    missing_gpt35_indexes.append(page["Number"])              
 
             # Print the number of pages being vectorized
-            num_pages = len(pages_vector)
-            print(f"Vectorizing {num_pages} pages and {len(pages_gpt35)} pages cleaned with GPT35.")
 
-            # Vectorize the pages
+            print(f"Vectorizing {num_pages} pages and {num_pages_gpt35} pages cleaned with GPT35.")
+
+            # Vectorize the pages in batch.
             pages_vector = model.encode(pages_vector)
             pages_gpt35 = model.encode(pages_gpt35)
 
@@ -115,16 +122,27 @@ while True:
             embeddings.delete_many({'DocumentId': raw_document['_id'], 'Model': modelKey})
 
             for i in range(num_pages):
+                
+                page = pages[i]
+                
+                # No need to add vectorization for removed pages.
+                if (page["Removed"]):
+                    continue
+
                 embedding = {
                     'DocumentId': raw_document['_id'],
                     'PageNumber': i,
-                    'Vector': pages_vector_normalized[i].tolist(),
-                    'VectorGpt35': pages_gpt35_normalized[i].tolist(),
+                    'Vector': pages_vector[i].tolist(),
                     'VectorNormalized': pages_vector_normalized[i].tolist(),
-                    'VectorGpt35Normalized': pages_gpt35_normalized[i].tolist(),
                     'Model': modelKey,
                     'CreatedOn': datetime.utcnow()
                 }
+                
+                # Insert the GPT35 vector only if the page was really processed with GPT35
+                if (page["Number"] not in missing_gpt35_indexes):
+                    embedding['VectorGpt35'] = pages_gpt35[i].tolist()
+                    embedding['VectorGpt35Normalized'] = pages_gpt35_normalized[i].tolist()
+
                 embeddings.insert_one(embedding)
 
             logging.info(f"Vectorization completed for document {raw_document['_id']}")
@@ -132,7 +150,7 @@ while True:
             # Update the document removing the job
             documents_to_index.update_one(
                 {'_id': raw_document['_id']},
-                {'$set': {'Processing': False, 'LastModification' : datetime.utcnow()},
+                {'$set': {'Processing': False, 'IndexToElastic' : datetime.utcnow()},
                  '$unset': {'Embedding': "", 'EmbeddingModel': "", 'EmbeddingModelKey': ""}}
             )
             logging.info(f"Document {raw_document['_id']} updated")

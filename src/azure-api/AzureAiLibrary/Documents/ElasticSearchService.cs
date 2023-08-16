@@ -276,7 +276,7 @@ public class ElasticSearchService
                      .Id(vectorData.Key)
                      .Index(indexName)
                      .Script(s => s
-                         .Source(CreateSourceUpdate(vectorData.Select(d => d.FieldName).Distinct()))
+                         .Source(CreateSourceUpdate(vectorData))
                          .Params(AddParams(vectorData))
                      )
                  );
@@ -295,25 +295,43 @@ public class ElasticSearchService
         var ret = new Dictionary<string, object>();
         foreach (var vector in vectorData)
         {
-            ret.Add($"standardVectorProperty{vector.FieldName}", vector.VectorData); // new value for foo as a dense vector
-            ret.Add($"standardNormalizedVectorProperty{vector.FieldName}", vector.NormalizedVectorData);
-            ret.Add($"gpt35VectorProperty{vector.FieldName}", vector.Gpt35VectorData);
-            ret.Add($"gpt35NormalizedVectorProperty{vector.FieldName}", vector.Gpt35NormalizedVectorData);
+            if (vector.Gpt35VectorData != null)
+            {
+                ret.Add($"standardVectorProperty{vector.FieldName}", vector.VectorData); // new value for foo as a dense vector
+                ret.Add($"standardNormalizedVectorProperty{vector.FieldName}", vector.NormalizedVectorData);
+                ret.Add($"gpt35VectorProperty{vector.FieldName}", vector.Gpt35VectorData ?? Array.Empty<double>());
+                ret.Add($"gpt35NormalizedVectorProperty{vector.FieldName}", vector.Gpt35NormalizedVectorData ?? Array.Empty<double>());
+            }
+            else
+            {
+                ret.Add($"standardVectorProperty{vector.FieldName}", vector.VectorData); // new value for foo as a dense vector
+                ret.Add($"standardNormalizedVectorProperty{vector.FieldName}", vector.NormalizedVectorData);
+            }
         }
 
         return ret;
     }
 
-    private string CreateSourceUpdate(IEnumerable<string> fieldNames)
+    private string CreateSourceUpdate(IGrouping<string, SingleDenseVectorData> vectorData)
     {
         StringBuilder sb = new StringBuilder(500);
-        foreach (var fieldName in fieldNames)
+        foreach (var vector in vectorData)
         {
-            sb.Append($@"ctx._source.{standardVectorProperty(fieldName)} = params.standardVectorProperty{fieldName}; 
+            var fieldName = vector.FieldName;
+            if (vector.Gpt35VectorData != null)
+            {
+                sb.Append($@"ctx._source.{standardVectorProperty(fieldName)} = params.standardVectorProperty{fieldName}; 
 ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNormalizedVectorProperty{fieldName}; 
 ctx._source.{gpt35VectorProperty(fieldName)} = params.gpt35VectorProperty{fieldName}; 
 ctx._source.{gpt35NormalizedVectorProperty(fieldName)} = params.gpt35NormalizedVectorProperty{fieldName};
 ");
+            }
+            else
+            {
+                sb.Append($@"ctx._source.{standardVectorProperty(fieldName)} = params.standardVectorProperty{fieldName}; 
+ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNormalizedVectorProperty{fieldName}; 
+");
+            }
         }
 
         return sb.ToString();

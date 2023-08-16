@@ -91,6 +91,6 @@ public class ElasticDocument : Dictionary<string, object>
 
     private double[] GetVectorData(string standardVectorProperty)
     {
-        return TryGetValue($"{standardVectorProperty}", out var rawVector) ? ((IEnumerable)rawVector).Cast<double>().ToArray() : Array.Empty<double>();
+        return TryGetValue($"{standardVectorProperty}", out var rawVector) ? ((IEnumerable)rawVector).Cast<double>().ToArray() : null;
     }
 }

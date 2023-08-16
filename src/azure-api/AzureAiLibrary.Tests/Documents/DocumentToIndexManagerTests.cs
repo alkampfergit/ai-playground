@@ -72,7 +72,7 @@ namespace AzureAiLibrary.Tests.Documents
             var started = DateTime.UtcNow.AddSeconds(-1);
 
             //Act, schedule cleanup gpt for the first document
-            await _sut.QueueForEmbedding(mongoDocumentToIndex.Id, "sentence-transformers/distiluse-base-multilingual-cased-v1");
+            await _sut.QueueForEmbedding(mongoDocumentToIndex.Id, "sentence-transformers/distiluse-base-multilingual-cased-v1", "berttest");
 
             //Assert
             var scheduled = _documentToIndexCollection.Find(x => x.Id == mongoDocumentToIndex.Id).FirstOrDefault();
@@ -99,7 +99,7 @@ namespace AzureAiLibrary.Tests.Documents
             var started = DateTime.UtcNow.AddSeconds(-1);
 
             //Act, schedule cleanup gpt for the first document
-            await _sut.QueueForEmbedding(id: null, embeddingModel: "sentence-transformers/distiluse-base-multilingual-cased-v1");
+            await _sut.QueueForEmbedding(id: null, embeddingModel : "sentence-transformers/distiluse-base-multilingual-cased-v1", embeddingModelKey: "berttest");
 
             //Assert
             var scheduled = _documentToIndexCollection.Find(x => x.Id == mongoDocumentToIndex.Id).FirstOrDefault();

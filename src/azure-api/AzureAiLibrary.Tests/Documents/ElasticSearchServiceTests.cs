@@ -5,10 +5,10 @@ namespace AzureAiLibrary.Tests.Documents;
 
 public class ElasticSearchServiceTests : IDisposable
 {
-    private ElasticSearchService _sut;
-    private ElasticClient _elasticClient;
-    private string _indexName;
-    private Random _random;
+    private readonly ElasticSearchService _sut;
+    private readonly ElasticClient _elasticClient;
+    private readonly string _indexName;
+    private readonly Random _random;
 
     public ElasticSearchServiceTests()
     {
@@ -117,6 +117,43 @@ public class ElasticSearchServiceTests : IDisposable
         Assert.Equal(vectorData.NormalizedVectorData, v.NormalizedVectorData);
         Assert.Equal(vectorData.Gpt35VectorData, v.Gpt35VectorData);
         Assert.Equal(vectorData.Gpt35NormalizedVectorData, v.Gpt35NormalizedVectorData);
+    }
+
+    [Fact]
+    public async Task Can_add_single_vector_data_without_gpt()
+    {
+        //when the service is inited it should cretate a mapping
+        await _sut.InitIndexAsync(_indexName);
+
+        //Arrange, save a document
+        ElasticDocument data = await SaveADocument();
+
+        //Act: add a new dense vector.
+        var vectorName = "test_vector_" + Guid.NewGuid().ToString().Replace("-", "");
+
+        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+            data.Id,
+            vectorName,
+            VectorData: GenerateRandomVector(512),
+            NormalizedVectorData: GenerateRandomVector(512),
+            Gpt35NormalizedVectorData: null,
+            Gpt35VectorData: null);
+        SingleDenseVectorData[] vectorList = new SingleDenseVectorData[] { singleDenseVectorData };
+        await _sut.IndexDenseVectorAsync(_indexName, vectorList);
+
+        //Assert: retrive the data and verify vectors are there
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, data.Id);
+        Assert.NotNull(reloaded);
+
+        //ok we need now to access the vectors.
+        var vector = reloaded.GetVector(vectorName);
+        Assert.NotNull(vector);
+        Assert.IsType<SingleDenseVectorData>(vector);
+        var v = (SingleDenseVectorData)vector;
+        Assert.Equal(singleDenseVectorData.VectorData, v.VectorData);
+        Assert.Equal(singleDenseVectorData.NormalizedVectorData, v.NormalizedVectorData);
+        Assert.Equal(singleDenseVectorData.Gpt35VectorData, v.Gpt35VectorData);
+        Assert.Equal(singleDenseVectorData.Gpt35NormalizedVectorData, v.Gpt35NormalizedVectorData);
     }
 
     [Fact]

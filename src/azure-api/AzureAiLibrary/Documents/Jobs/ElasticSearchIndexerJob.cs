@@ -66,14 +66,29 @@ namespace AzureAiLibrary.Documents.Jobs
                 {
                     foreach (var embedding in pageEmbeddings)
                     {
-                        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
-                            Id: pageId,
-                            FieldName: embedding.Model,
-                            VectorData: embedding.Vector.ToArray(),
-                            NormalizedVectorData: embedding.VectorNormalized.ToArray(),
-                            Gpt35VectorData: embedding.VectorGpt35.ToArray(),
-                            Gpt35NormalizedVectorData: embedding.VectorGpt35Normalized.ToArray()
-                        );
+                        SingleDenseVectorData singleDenseVectorData;
+                        if (embedding.VectorGpt35 != null)
+                        {
+                            singleDenseVectorData = new SingleDenseVectorData(
+                                Id: pageId,
+                                FieldName: embedding.Model,
+                                VectorData: embedding.Vector.ToArray(),
+                                NormalizedVectorData: embedding.VectorNormalized.ToArray(),
+                                Gpt35VectorData: embedding.VectorGpt35.ToArray(),
+                                Gpt35NormalizedVectorData: embedding.VectorGpt35Normalized.ToArray()
+                            );
+                        }
+                        else
+                        {
+                            singleDenseVectorData = new SingleDenseVectorData(
+                               Id: pageId,
+                               FieldName: embedding.Model,
+                               VectorData: embedding.Vector.ToArray(),
+                               NormalizedVectorData: embedding.VectorNormalized.ToArray(),
+                               Gpt35VectorData: null,
+                               Gpt35NormalizedVectorData: null
+                           );
+                        }
                         vectors.Add(singleDenseVectorData);
                     }
                 }
