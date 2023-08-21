@@ -5,20 +5,92 @@
 
 <h3>Documents</h3>
 
-<MudContainer Style="max-width: 800px; margin: auto;">
+<style>
+    .selected {
+        background-color: #1E88E5 !important;
+    }
+
+        .selected > td {
+            color: white !important;
+        }
+
+            .selected > td .mud-input {
+                color: white !important;
+            }
+</style>
+
+<MudContainer Style="max-width:  margin: auto;">
     <MudCard>
         <MudCardContent>
-            <h1>Start Services</h1>
+            <h2>Start Services</h2>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@StartServices">Start Services</MudButton>
         </MudCardContent>
     </MudCard>
 
     <MudCard>
         <MudCardContent>
-            <h1>Specify Path With document </h1>
+            <h2>Specify Path With document </h2>
             <MudTextField @bind-Value="@Path" Label="Path" />
             <MudTextField @bind-Value="@Filter" Label="Filter" />
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ExtractWithTika">Extract with tika</MudButton>
         </MudCardContent>
     </MudCard>
+
+    <MudCard>
+        <MudCardContent>
+            <h2>Search </h2>
+            <MudTextField @bind-Value="@KeywordSearch" Label="KeywordSearch" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@PerformSearch">Search Keyword</MudButton>
+        </MudCardContent>
+    </MudCard>
+
+    <MudTable T="AzureAiPlayground.Pages.ViewModels.DocumentSearchResult" Items="SearchResult" @ref="ResultTable" RowClassFunc="@SelectedRowClassFunc" OnRowClick="RowClickEvent">
+        <HeaderContent>
+            <MudTh></MudTh>
+            <MudTh>Id</MudTh>
+            <MudTh>Page Number</MudTh>
+            <MudTh>Doc Title</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd><MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => ShowBtnPress(context))">@((context.ShowDetails == true) ? "Hide" : "Show") Details</MudButton></MudTd>
+            <MudTd DataLabel="Id">@context.Id</MudTd>
+            <MudTd DataLabel="Page Number">@context.PageNumber</MudTd>
+            <MudTd DataLabel="Doc Title">@context.DocTitle</MudTd>
+        </RowTemplate>
+        <ChildRowContent>
+            @if (context.ShowDetails)
+            {
+                <MudTr>
+                    <td colspan="4">
+                        <MudCard Elevation="0">
+                            <MudCardHeader>
+                                <CardHeaderContent>
+                                    <MudText Typo="Typo.body1">Details for document <strong>@context.Id</strong></MudText>
+                                </CardHeaderContent>
+                            </MudCardHeader>
+                            <MudCardContent Class="pa-0">
+                                <h3>Content</h3>
+                                <MudText>@context.Content</MudText>
+                                <h3>Gpt35Content</h3>
+                                <MudText>@context.Gpt35Content</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </td>
+                </MudTr>
+            }
+        </ChildRowContent>
+    </MudTable>
+
+    <MudExpansionPanels Style="flex: 1;">
+        <MudExpansionPanel Text="Show Details">
+            @if (SelectedDocument != null)
+            {
+                <div>Content: @SelectedDocument.Content</div>
+                <div>Gpt35Content: @SelectedDocument.Gpt35Content</div>
+            }
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+
 </MudContainer>
+
+

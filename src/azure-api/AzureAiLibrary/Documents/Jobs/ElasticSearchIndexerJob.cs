@@ -46,19 +46,34 @@ namespace AzureAiLibrary.Documents.Jobs
                 var pageId = $"{page.Number}_{rawDocument.Id}";
                 var elasticDocument = new ElasticDocument(pageId);
                 elasticDocument.AddTextProperty("originalcontent", page.OriginalContent);
+                elasticDocument.AddNumericProperty("page", page.Number);
+                elasticDocument.AddStringProperty("docid", rawDocument.Id);
                 elasticDocument.AddTextProperty("content", page.Content);
+
+                //metadata is not so useful.
+                //foreach (var metadata in rawDocument.Metadata)
+                //{
+                //    if (metadata.Value?.Any(m => !string.IsNullOrEmpty(m)) == true)
+                //    {
+                //        elasticDocument.AddStringProperty(metadata.Key, metadata.Value.Where(m => !string.IsNullOrEmpty(m)));
+                //    }
+                //}
 
                 if (!String.IsNullOrEmpty(page.Gpt35PageInformation?.CleanText))
                 {
                     elasticDocument.AddTextProperty("gpt35content", page.Gpt35PageInformation.CleanText);
                     elasticDocument.AddTextProperty("code", page.Gpt35PageInformation.Code);
-
+                    elasticDocument.AddStringProperty("gpt35", "true");
                     if (page.Gpt35PageInformation.Ner?.Count > 0)
                     {
                         elasticDocument.AddStringProperty("ner", page.Gpt35PageInformation.Ner);
                     }
 
                     elasticDocument.AddTextProperty("code", page.Gpt35PageInformation.Code);
+                }
+                else
+                {
+                    elasticDocument.AddStringProperty("gpt35", "false");
                 }
 
                 //Ok we need to add all embeddings.

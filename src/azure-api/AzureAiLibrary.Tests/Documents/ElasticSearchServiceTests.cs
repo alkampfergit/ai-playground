@@ -1,5 +1,7 @@
 using AzureAiLibrary.Documents;
+using MongoDB.Driver.Search;
 using Nest;
+using static AzureAiLibrary.Documents.ElasticSearchService;
 
 namespace AzureAiLibrary.Tests.Documents;
 
@@ -97,6 +99,29 @@ public class ElasticSearchServiceTests : IDisposable
 
         Assert.Equal(data.Title, reloaded.Title);
         Assert.Equal(data["s_ner"], reloaded["s_ner"]);
+    }
+
+    [Fact]
+    public async Task Can_index_numeric_properites()
+    {
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data.Title = "Test Title";
+        data.AddNumericProperty("num", 23);
+
+        //index the document.
+        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data }));
+
+        //assert: verify searching capabilities
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, data.Id);
+
+        Assert.NotNull(reloaded);
+
+        //Assert equality
+        Assert.Equal(data.Id, reloaded.Id);
+
+        Assert.Equal(data.Title, reloaded.Title);
+        Assert.Equal(23, Convert.ToDouble(reloaded["n_num"]));
+        Assert.Equal(23,reloaded.GetNumericProperty("num"));
     }
 
     [Fact]
@@ -327,6 +352,33 @@ public class ElasticSearchServiceTests : IDisposable
 
         //check text properties are corrects.
         Assert.Equal(data.GetTextProperty("content"), results.Single().GetTextProperty("content"));
+    }
+
+    [Fact]
+    public async Task Can_search_multiple_fields_weigth()
+    {
+        ElasticDocument data1 = new(Guid.NewGuid().ToString());
+        data1.Title = "Test Title1";
+        data1.AddTextProperty("content", "This is a brief introduction to penetration testing technique ");
+        data1.AddTextProperty("gpt35content", "Introduction to pentest");
+
+        ElasticDocument data2 = new(Guid.NewGuid().ToString());
+        data2.Title = "Test Title2";
+        data2.AddTextProperty("content", "When we get a penetration testing engagement we need to be sure that we have defined ... ");
+        data2.AddTextProperty("gpt35content", "Penetration testing rule of engagement");
+
+        //index the document.
+        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data1, data2 }));
+        _elasticClient.Indices.Refresh(_indexName); //be sure index is refreshed.
+
+        QueryDefinition query = new(_indexName, "penetration testing");
+        query.FieldsDefinition.Add(new FieldsDefinition("content", 1));
+        query.FieldsDefinition.Add(new FieldsDefinition("gpt35content", 3));
+
+        //assert: verify searching capabilities
+        var results = await _sut.SearchAsync(query);
+        Assert.Equal(2, results.Count); //both documents matches penetration testing keyword.
+        Assert.Equal(data2.Id, results.First().Id); //second element matched penetration testing in both fields.
     }
 
     [Fact]

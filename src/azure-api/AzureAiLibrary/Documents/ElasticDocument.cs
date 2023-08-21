@@ -1,3 +1,4 @@
+using Amazon.Runtime;
 using Nest;
 using System.Collections;
 
@@ -70,6 +71,17 @@ public class ElasticDocument : Dictionary<string, object>
     public string? GetTextProperty(string key)
     {
         return TryGetValue($"t_{key}", out var title) ? title as string : string.Empty;
+    }
+
+    public ElasticDocument AddNumericProperty(string key, double number)
+    {
+        this[$"n_{key}"] = number;
+        return this;
+    }
+
+    public double? GetNumericProperty(string key)
+    {
+        return TryGetValue($"n_{key}", out var title) ? title as double? : null;
     }
 
     public SingleDenseVectorData GetVector(string fieldName)

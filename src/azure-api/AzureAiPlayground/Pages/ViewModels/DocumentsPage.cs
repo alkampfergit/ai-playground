@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using MudBlazor;
 
 namespace AzureAiPlayground.Pages.ViewModels
 {
@@ -9,6 +10,14 @@ namespace AzureAiPlayground.Pages.ViewModels
 
         [Inject]
         public DocumentsViewModel DocumentsViewModel { get; set; } = null!;
+
+        public IList<DocumentSearchResult> SearchResult { get; private set; } = new List<DocumentSearchResult>();
+
+        public DocumentSearchResult? SelectedDocument { get; set; }
+
+        public MudTable<DocumentSearchResult> ResultTable { get; set; } = null!;
+
+        public string KeywordSearch { get; set; } = string.Empty;
 
         public Task ExtractWithTika()
         {
@@ -24,10 +33,29 @@ namespace AzureAiPlayground.Pages.ViewModels
             return DocumentsViewModel.StartServices();
         }
 
-
-        public class SearchResult 
+        public async Task PerformSearch()
         {
-            public string Id { get; set; }
+            SearchResult = await DocumentsViewModel.SearchKeywordAsync(KeywordSearch);
+        }
+
+        public string SelectedRowClassFunc(DocumentSearchResult item, int rowNumber)
+        {
+            if (item == SelectedDocument)
+            {
+                return "selected";
+            }
+
+            return string.Empty;
+        }
+
+        public void RowClickEvent(TableRowClickEventArgs<DocumentSearchResult> evt)
+        {
+            SelectedDocument = evt.Item;
+        }
+
+        public void ShowBtnPress(DocumentSearchResult document)
+        {
+            document.ShowDetails = !document.ShowDetails;
         }
     }
 }

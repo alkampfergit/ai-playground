@@ -46,11 +46,13 @@
             .ToList();
     }
 
-    private async Task Search()
+    private Task Search()
     {
         searchResults = _db.Search(searchQuery)
             .Select(t => new Item(t.Id, t.Description, t.Record.Favorited))
             .ToList();
+
+            return Task.CompletedTask;
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)

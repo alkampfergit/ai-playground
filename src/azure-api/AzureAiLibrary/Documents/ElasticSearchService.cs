@@ -497,5 +497,50 @@ ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNorma
                        )
                 );
         }
+
+
     }
+
+    /// <summary>
+    /// Performs a keyword xact match search on the specified fields.
+    /// </summary>
+    /// <param name="indexName"></param>
+    /// <param name="fields"></param>
+    /// <param name="query"></param>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public async Task<IReadOnlyCollection<ElasticDocument>> SearchAsync(QueryDefinition queryDefinition)
+    {
+        //perform an ElasticSearch query with query string frield with the nest driver
+        var searchResult = await _elasticClient.SearchAsync<ElasticDocument>(s => s
+            .Index(queryDefinition.Index)
+                .Size(queryDefinition.NumOfRecords)
+                .Query(q => q
+                    .QueryString(qs => qs
+                    .Query(queryDefinition.Query)
+                        .Fields(queryDefinition.FieldsDefinition.Select(f => $"t_{f.FieldName}^{f.Boost}").ToArray())
+                    )
+            ));
+
+        return PostQuery(searchResult);
+    }
+
+    public class QueryDefinition
+    {
+        public QueryDefinition(string index, string query)
+        {
+            Index = index;
+            Query = query;
+        }
+
+        public string Index { get; private set; }
+        public string Query { get; private set; }
+
+        public int NumOfRecords { get; set; } = 20;
+
+        public List<FieldsDefinition> FieldsDefinition { get; set; } = new List<FieldsDefinition>();
+    }
+
+    public record FieldsDefinition(string FieldName, double Boost= 1);
 }
+
