@@ -23,5 +23,11 @@ namespace AzureAiPlayground.Pages.ViewModels
         {
             return DocumentsViewModel.StartServices();
         }
+
+
+        public class SearchResult 
+        {
+            public string Id { get; set; }
+        }
     }
 }

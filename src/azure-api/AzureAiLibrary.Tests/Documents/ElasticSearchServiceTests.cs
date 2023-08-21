@@ -81,9 +81,9 @@ public class ElasticSearchServiceTests : IDisposable
     {
         await _sut.InitIndexAsync(_indexName);
 
-        ElasticDocument data = new (Guid.NewGuid().ToString());
+        ElasticDocument data = new(Guid.NewGuid().ToString());
         data.Title = "Test Title";
-        data.AddStringProperty("ner", new[] { "api", "chatgp", "ai"});
+        data.AddStringProperty("ner", new[] { "api", "chatgp", "ai" });
 
         var insert = await _sut.IndexAsync(_indexName, new ElasticDocument[] { data });
         Assert.True(insert, "Bulk insert did not work");
@@ -157,7 +157,7 @@ public class ElasticSearchServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Can_add_two_types_of_vector_in_a_single_call() 
+    public async Task Can_add_two_types_of_vector_in_a_single_call()
     {
         //when the service is inited it should cretate a mapping
         await _sut.InitIndexAsync(_indexName);
@@ -194,7 +194,7 @@ public class ElasticSearchServiceTests : IDisposable
 
         var vector2 = reloaded.GetVector(vectorName2);
         Assert.NotNull(vector2);
-        Assert.IsType<SingleDenseVectorData>(vector2 );
+        Assert.IsType<SingleDenseVectorData>(vector2);
         Assert.Equal(singleDenseVectorData2.VectorData, vector2.VectorData);
         Assert.Equal(singleDenseVectorData2.NormalizedVectorData, vector2.NormalizedVectorData);
         Assert.Equal(singleDenseVectorData2.Gpt35VectorData, vector2.Gpt35VectorData);
@@ -222,7 +222,7 @@ public class ElasticSearchServiceTests : IDisposable
         SingleDenseVectorData singleDenseVectorData2 = CreateSingleDenseVectorData(data, vectorName2);
 
         //Index first a vector then another vector
-        SingleDenseVectorData[] vectorList1 = new SingleDenseVectorData[] { singleDenseVectorData1,  };
+        SingleDenseVectorData[] vectorList1 = new SingleDenseVectorData[] { singleDenseVectorData1, };
         await _sut.IndexDenseVectorAsync(_indexName, vectorList1);
         SingleDenseVectorData[] vectorList2 = new SingleDenseVectorData[] { singleDenseVectorData2 };
         await _sut.IndexDenseVectorAsync(_indexName, vectorList2);
@@ -308,6 +308,117 @@ public class ElasticSearchServiceTests : IDisposable
         Assert.Equal(data["t_prova"], reloaded["t_prova"]);
     }
 
+    [Fact]
+    public async Task Can_search_keyword()
+    {
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data.Title = "Test Title";
+        data.AddTextProperty("content", "This document contains a unique words complete mediation a technuque used in ... ");
+
+        //index the document.
+        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data }));
+        _elasticClient.Indices.Refresh(_indexName); //be sure index is refreshed.
+
+        //assert: verify searching capabilities
+        var results = await _sut.SearchAsync(_indexName, new[] { "content" }, "complete mediation");
+        Assert.Equal(1, results.Count);
+        Assert.Equal(data.Id, results.Single().Id);
+        Assert.Equal(data.Title, results.Single().Title);
+
+        //check text properties are corrects.
+        Assert.Equal(data.GetTextProperty("content"), results.Single().GetTextProperty("content"));
+    }
+
+    [Fact]
+    public async Task can_search_vector()
+    {
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data.Title = "Test Title1";
+        data.AddTextProperty("content", "Some content "); 
+        
+        ElasticDocument data2 = new(Guid.NewGuid().ToString());
+        data2.Title = "Test Title2";
+        data2.AddTextProperty("content", "Some content ");
+
+        //index the document.
+        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data, data2 }));
+
+        //now add vectors
+        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+            data.Id,
+            "blabla",
+            VectorData: new double[] { 1, 1, 1},
+            NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 },
+            Gpt35VectorData: new double[] { 1, 1, 1 },
+            Gpt35NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 });
+
+        //Second vector, actually a unit length vector.
+        SingleDenseVectorData singleDenseVectorData2 = new SingleDenseVectorData(
+            data2.Id,
+            "blabla",
+            VectorData: new double[] { 0, 1, 0 },
+            NormalizedVectorData: new double[] { 0, 1,0 },
+            Gpt35VectorData: new double[] { 0, 1, 0 },
+            Gpt35NormalizedVectorData: new double[] { 0, 1, 0 });
+
+        await _sut.IndexDenseVectorAsync(_indexName, new[] { singleDenseVectorData, singleDenseVectorData2 });
+        await _elasticClient.Indices.RefreshAsync(_indexName); //be sure index is refreshed.
+
+        //assert: verify searching vectgor capabilities.
+        var results = await _sut.SearchVectorAsync(
+            _indexName,
+            "blabla", 
+            new[] { 1, 0.7, 0.9 });
+        Assert.Equal(2, results.Count);
+        var first = results.First();
+        Assert.True(data.Id == first.Id, "first result is the correct one based on vector distance");
+    }
+
+    [Fact]
+    public async Task can_search_vector_gpt_()
+    {
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data.Title = "Test Title1";
+        data.AddTextProperty("content", "Some content ");
+
+        ElasticDocument data2 = new(Guid.NewGuid().ToString());
+        data2.Title = "Test Title2";
+        data2.AddTextProperty("content", "Some content ");
+
+        //index the document.
+        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data, data2 }));
+
+        //now add vectors
+        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+            data.Id,
+            "blabla",
+            VectorData: new double[] { 1, 1, 1 },
+            NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 },
+            Gpt35VectorData: new double[] { 1, 1, 1 },
+            Gpt35NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 });
+
+        //Second vector, actually a unit length vector.
+        SingleDenseVectorData singleDenseVectorData2 = new SingleDenseVectorData(
+            data2.Id,
+            "blabla",
+            VectorData: new double[] { 0, 1, 0 },
+            NormalizedVectorData: new double[] { 0, 1, 0 },
+            Gpt35VectorData: new double[] { 0, 1, 0 },
+            Gpt35NormalizedVectorData: new double[] { 0, 1, 0 });
+
+        await _sut.IndexDenseVectorAsync(_indexName, new[] { singleDenseVectorData, singleDenseVectorData2 });
+        await _elasticClient.Indices.RefreshAsync(_indexName); //be sure index is refreshed.
+
+        //assert: verify searching vectgor capabilities.
+        var results = await _sut.SearchVectorAsync(
+            _indexName,
+            "blabla",
+            new[] { 1, 0.7, 0.9 });
+        Assert.Equal(2, results.Count);
+        var first = results.First();
+        Assert.True(data.Id == first.Id, "first result is the correct one based on vector distance");
+    }
+
     private async Task<(string vectorFieldName, string documentId, SingleDenseVectorData vectorData)> CreateIndexAndIndexDataWithVectors()
     {
         //when the service is inited it should cretate a mapping
@@ -328,12 +439,12 @@ public class ElasticSearchServiceTests : IDisposable
     private SingleDenseVectorData CreateSingleDenseVectorData(ElasticDocument data, string vectorName)
     {
         return new SingleDenseVectorData(
-                    data.Id,
-                    vectorName,
-                    VectorData: GenerateRandomVector(512),
-                    NormalizedVectorData: GenerateRandomVector(512),
-                    Gpt35NormalizedVectorData: GenerateRandomVector(512),
-                    Gpt35VectorData: GenerateRandomVector(512));
+            data.Id,
+            vectorName,
+            VectorData: GenerateRandomVector(512),
+            NormalizedVectorData: GenerateRandomVector(512),
+            Gpt35NormalizedVectorData: GenerateRandomVector(512),
+            Gpt35VectorData: GenerateRandomVector(512));
     }
 
     private async Task<ElasticDocument> SaveADocument()

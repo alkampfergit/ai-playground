@@ -1,5 +1,4 @@
-﻿using MongoDB.Driver.Core.Operations;
-using Nest;
+﻿using Nest;
 using Serilog;
 using System.Text;
 
@@ -235,10 +234,10 @@ public class ElasticSearchService
 
     private HashSet<string> _alreadyMappedDenseVectorField = new();
 
-    private Func<string, string> standardVectorProperty = fieldName => $"v_{fieldName}_vector";
-    private Func<string, string> standardNormalizedVectorProperty = fieldName => $"v_{fieldName}_normalized_vector";
-    private Func<string, string> gpt35VectorProperty = fieldName => $"v_{fieldName}_gpt35_vector";
-    private Func<string, string> gpt35NormalizedVectorProperty = fieldName => $"v_{fieldName}_gpt35_normalized_vector";
+    private readonly Func<string, string> standardVectorProperty = fieldName => $"v_{fieldName}_vector";
+    private readonly Func<string, string> standardNormalizedVectorProperty = fieldName => $"v_{fieldName}_normalized_vector";
+    private readonly Func<string, string> gpt35VectorProperty = fieldName => $"v_{fieldName}_gpt35_vector";
+    private readonly Func<string, string> gpt35NormalizedVectorProperty = fieldName => $"v_{fieldName}_gpt35_normalized_vector";
 
     public async Task IndexDenseVectorAsync(string indexName, SingleDenseVectorData[] singleDenseVectorDatas)
     {
@@ -246,8 +245,9 @@ public class ElasticSearchService
         {
             var allVectorDatas = singleDenseVectorDatas
                 .GroupBy(d => d.FieldName)
-                .Select(d => new  {
-                    FieldName = d.ElementAt(0).FieldName, 
+                .Select(d => new
+                {
+                    FieldName = d.ElementAt(0).FieldName,
                     Length = d.ElementAt(0).VectorData.Length
                 }).ToArray();
 
@@ -360,16 +360,85 @@ ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNorma
         var mapResult = await _elasticClient.MapAsync<ElasticDocument>(
             r => r.Index(indexName)
                 .Properties(p => p
-                    .DenseVector(d => d.Name($"v_{fieldName}_vector").Dimensions(dimension))
-                    .DenseVector(d => d.Name($"v_{fieldName}_normalized_vector").Dimensions(dimension))
-                    .DenseVector(d => d.Name($"v_{fieldName}_gpt35_vector").Dimensions(dimension))
-                    .DenseVector(d => d.Name($"v_{fieldName}_gpt35_normalized_vector").Dimensions(dimension)
+                    .DenseVector(d => d.Name(standardVectorProperty(fieldName)).Dimensions(dimension))
+                    .DenseVector(d => d.Name(standardNormalizedVectorProperty(fieldName)).Dimensions(dimension))
+                    .DenseVector(d => d.Name(gpt35VectorProperty(fieldName)).Dimensions(dimension))
+                    .DenseVector(d => d.Name(gpt35NormalizedVectorProperty(fieldName)).Dimensions(dimension)
         )));
 
         if (mapResult.IsValid == false)
         {
             throw new Exception("Unable to SET mapping for index " + indexName);
         }
+    }
+
+    /// <summary>
+    /// Performs a keyword xact match search on the specified fields.
+    /// </summary>
+    /// <param name="indexName"></param>
+    /// <param name="fields"></param>
+    /// <param name="query"></param>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public async Task<IReadOnlyCollection<ElasticDocument>> SearchAsync(string indexName, string[] fields, string query)
+    {
+        //perform an ElasticSearch query with query string frield with the nest driver
+        var searchResult = await _elasticClient.SearchAsync<ElasticDocument>(s => s
+            .Index(indexName)
+                .Size(20)
+                .Query(q => q
+                    .QueryString(qs => qs
+                    .Query(query)
+                        .Fields(fields.Select(f => $"t_{f}").ToArray())
+                    )
+            ));
+
+        return PostQuery(searchResult);
+    }
+
+    public async Task<IReadOnlyCollection<ElasticDocument>> SearchVectorAsync(
+        string indexName,
+        string vectorType,
+        double[] similarityVector,
+        bool useGptVector = false)
+    {
+        //I need to perform a NEST query on vector field identified by vectorField. In this first version
+        //we let the caller to specify if we want to use the gpt35 vector or the standard vector.
+        var vectorFieldName = useGptVector ? gpt35VectorProperty(vectorType) : standardVectorProperty(vectorType);
+        var searchResponse = await _elasticClient.SearchAsync<ElasticDocument>(s => s
+            .Index(indexName)
+            .Query(q => q
+                .ScriptScore(ss => ss
+                    .Query(qq => qq.MatchAll())
+                    .Script(sc => sc
+                        .Source($"cosineSimilarity(params.queryVector, doc['{vectorFieldName}']) + 1.0")
+                        .Params(p => p
+                            .Add("queryVector", similarityVector)
+                        )
+                    )
+                )
+            )
+        );
+
+        return PostQuery(searchResponse);
+    }
+
+    private IReadOnlyCollection<ElasticDocument> PostQuery(ISearchResponse<ElasticDocument> searchResult)
+    {
+        if (!searchResult.IsValid)
+        {
+            Logger.Error("Error searching inside elasticsearch: {error}", searchResult.ServerError?.Error);
+            return Array.Empty<ElasticDocument>();
+        }
+
+        for (int i = 0; i < searchResult.Documents.Count; i++)
+        {
+            var doc = searchResult.Documents.ElementAt(i);
+            var hit = searchResult.Hits.ElementAt(i);
+            doc.Id = hit.Id;
+        }
+
+        return searchResult.Documents;
     }
 
     public static Func<DynamicTemplateContainerDescriptor<ElasticDocument>, IPromise<IDynamicTemplateContainer>> MapDynamicProperties
