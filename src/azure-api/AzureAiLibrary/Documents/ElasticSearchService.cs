@@ -13,6 +13,9 @@ public class ElasticSearchService
     public ElasticSearchService(Uri uri)
     {
         var settings = new ConnectionSettings(uri);
+#if DEBUG
+        settings.DisableDirectStreaming();
+#endif
         _elasticClient = new ElasticClient(settings);
         _uri = uri;
     }
@@ -297,14 +300,16 @@ public class ElasticSearchService
         {
             if (vector.Gpt35VectorData != null)
             {
-                ret.Add($"standardVectorProperty{vector.FieldName}", vector.VectorData); // new value for foo as a dense vector
-                ret.Add($"standardNormalizedVectorProperty{vector.FieldName}", vector.NormalizedVectorData);
                 ret.Add($"gpt35VectorProperty{vector.FieldName}", vector.Gpt35VectorData ?? Array.Empty<double>());
-                ret.Add($"gpt35NormalizedVectorProperty{vector.FieldName}", vector.Gpt35NormalizedVectorData ?? Array.Empty<double>());
+                if (vector.Gpt35NormalizedVectorData != null)
+                {
+                    ret.Add($"gpt35NormalizedVectorProperty{vector.FieldName}", vector.Gpt35NormalizedVectorData ?? Array.Empty<double>());
+                }
             }
-            else
+
+            ret.Add($"standardVectorProperty{vector.FieldName}", vector.VectorData); // new value for foo as a dense vector
+            if (vector.NormalizedVectorData != null)
             {
-                ret.Add($"standardVectorProperty{vector.FieldName}", vector.VectorData); // new value for foo as a dense vector
                 ret.Add($"standardNormalizedVectorProperty{vector.FieldName}", vector.NormalizedVectorData);
             }
         }
@@ -320,17 +325,17 @@ public class ElasticSearchService
             var fieldName = vector.FieldName;
             if (vector.Gpt35VectorData != null)
             {
-                sb.Append($@"ctx._source.{standardVectorProperty(fieldName)} = params.standardVectorProperty{fieldName}; 
-ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNormalizedVectorProperty{fieldName}; 
-ctx._source.{gpt35VectorProperty(fieldName)} = params.gpt35VectorProperty{fieldName}; 
-ctx._source.{gpt35NormalizedVectorProperty(fieldName)} = params.gpt35NormalizedVectorProperty{fieldName};
-");
+                sb.AppendLine($"ctx._source.{gpt35VectorProperty(fieldName)} = params.gpt35VectorProperty{fieldName};");
+                if (vector.Gpt35NormalizedVectorData != null)
+                {
+                    sb.AppendLine($"ctx._source.{gpt35NormalizedVectorProperty(fieldName)} = params.gpt35NormalizedVectorProperty{fieldName};");
+                }
             }
-            else
+
+            sb.AppendLine($"ctx._source.{standardVectorProperty(fieldName)} = params.standardVectorProperty{fieldName};");
+            if (vector.NormalizedVectorData != null)
             {
-                sb.Append($@"ctx._source.{standardVectorProperty(fieldName)} = params.standardVectorProperty{fieldName}; 
-ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNormalizedVectorProperty{fieldName}; 
-");
+                sb.AppendLine($"ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNormalizedVectorProperty{fieldName};");
             }
         }
 
@@ -409,7 +414,15 @@ ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNorma
             .Index(indexName)
             .Query(q => q
                 .ScriptScore(ss => ss
-                    .Query(qq => qq.MatchAll())
+                 .Query(qq => qq
+                        .Bool(b => b
+                            .Filter(f => f
+                                .Exists(e => e
+                                    .Field(vectorFieldName)
+                                )
+                            )
+                        )
+                    )
                     .Script(sc => sc
                         .Source($"cosineSimilarity(params.queryVector, doc['{vectorFieldName}']) + 1.0")
                         .Params(p => p
@@ -515,14 +528,65 @@ ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNorma
         var searchResult = await _elasticClient.SearchAsync<ElasticDocument>(s => s
             .Index(queryDefinition.Index)
                 .Size(queryDefinition.NumOfRecords)
-                .Query(q => q
-                    .QueryString(qs => qs
-                    .Query(queryDefinition.Query)
-                        .Fields(queryDefinition.FieldsDefinition.Select(f => $"t_{f.FieldName}^{f.Boost}").ToArray())
-                    )
+                .Query(q => CreateQuery(queryDefinition, q)
             ));
 
         return PostQuery(searchResult);
+    }
+
+    private QueryContainer CreateQuery(
+        QueryDefinition queryDefinition,
+        QueryContainerDescriptor<ElasticDocument> q)
+    {
+        //ok we need to check the type of the query.
+        //first of all, is the query empty?
+        if (queryDefinition.IsEmpty) return q.MatchAll();
+
+        QueryContainer qc = q;
+
+        List<QueryContainer> queryParts = new List<QueryContainer>();
+
+        //ok we have some query, first of all check if we have a keyword query.
+        if (!string.IsNullOrEmpty(queryDefinition.Query))
+        {
+            queryParts.Add(q
+                .QueryString(qs => qs
+                .Query(queryDefinition.Query)
+                    .Fields(queryDefinition.FieldsDefinition.Select(f => $"t_{f.FieldName}^{f.Boost}").ToArray())
+            ));
+        }
+
+        //ok if we have vectory query we need to add a vector query.
+        if (queryDefinition.VectorSearches.Any())
+        {
+            if (queryDefinition.VectorSearches.Count > 1)
+            {
+                throw new NotSupportedException("Not possible to perform multiple vector searches in the same query.");
+            }
+
+            var vector = queryDefinition.VectorSearches.First();
+            var vectorFieldName = vector.UseGptVector ? gpt35VectorProperty(vector.VectorType) : standardVectorProperty(vector.VectorType);
+            queryParts.Add(q
+                .ScriptScore(ss => ss
+                 .Query(qq => qq
+                        .Bool(b => b
+                            .Filter(f => f
+                                .Exists(e => e
+                                    .Field(vectorFieldName)
+                                )
+                            )
+                        )
+                    )
+                    .Script(sc => sc
+                        .Source($"cosineSimilarity(params.queryVector, doc['{vectorFieldName}']) + 1.0")
+                        .Params(p => p
+                            .Add("queryVector", vector.VectorData)
+                        )
+                    )
+            ));
+        }
+
+        return q.Bool(b => b.Should(queryParts.ToArray()));
     }
 
     public class QueryDefinition
@@ -533,14 +597,24 @@ ctx._source.{standardNormalizedVectorProperty(fieldName)} = params.standardNorma
             Query = query;
         }
 
+        public QueryDefinition(string index)
+        {
+            Index = index;
+            Query = String.Empty; //probably vector search.
+        }
+
         public string Index { get; private set; }
         public string Query { get; private set; }
 
         public int NumOfRecords { get; set; } = 20;
 
         public List<FieldsDefinition> FieldsDefinition { get; set; } = new List<FieldsDefinition>();
+
+        public List<VectorSearch> VectorSearches { get; set; } = new List<VectorSearch>();
+        public bool IsEmpty => String.IsNullOrEmpty(Query) && !VectorSearches.Any();
     }
 
-    public record FieldsDefinition(string FieldName, double Boost= 1);
-}
+    public record FieldsDefinition(string FieldName, double Boost = 1);
 
+    public record VectorSearch(string VectorType, double[] VectorData, bool UseGptVector = false);
+}

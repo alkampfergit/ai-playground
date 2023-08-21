@@ -2,6 +2,7 @@
 using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.Jobs;
+using AzureAiLibrary.Documents.Support;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using static AzureAiLibrary.Documents.ElasticSearchService;
@@ -13,12 +14,14 @@ namespace AzureAiPlayground.Pages.ViewModels
         private readonly Gpt35AiCleaner _gpt35AiCleaner;
         private readonly ElasticSearchService _elasticSearchService;
         private readonly ElasticSearchIndexerJob _elasticIndexer;
+        private readonly PythonTokenizer _pythonTokenizer;
         private IMongoDatabase _mongoDatabase;
         private TikaExtractor _tikaExtractor;
         private RawDocumentSimpleReader _rawDocumentSimpleReader;
 
         public DocumentsViewModel(
             IOptionsMonitor<DocumentsConfig> documentsConfig,
+            PythonTokenizer pythonTokenizer,
             ChatClient chatClient)
         {
             var url = new MongoUrl(documentsConfig.CurrentValue.MongoUrl);
@@ -38,6 +41,7 @@ namespace AzureAiPlayground.Pages.ViewModels
             _gpt35AiCleaner = new Gpt35AiCleaner(_mongoDatabase, chatClient);
             _elasticSearchService = new ElasticSearchService(new Uri(documentsConfig.CurrentValue.ElasticUrl));
             _elasticIndexer = new ElasticSearchIndexerJob(_mongoDatabase, _elasticSearchService);
+            _pythonTokenizer = pythonTokenizer;
         }
 
         public Task ExtractPath(string path, string filter)
@@ -63,6 +67,16 @@ namespace AzureAiPlayground.Pages.ViewModels
             //Original content should be weighted higher than the gpt35 content?
             query.FieldsDefinition.Add(new FieldsDefinition("content", 5));
             query.FieldsDefinition.Add(new FieldsDefinition("gpt35content", 1));
+
+            var result = await _elasticSearchService.SearchAsync(query);
+            return result?.Select(r => new DocumentSearchResult(r)).ToList() ?? new List<DocumentSearchResult>();
+        }
+
+        public async Task<IList<DocumentSearchResult>> SearchVectorAsync(string querystring)
+        {
+            var tokenizedVector = await _pythonTokenizer.Tokenize(querystring, "Bert");
+            QueryDefinition query = new(ElasticSearchIndexerJob.IndexName);
+            query.VectorSearches.Add(new VectorSearch("Bert", tokenizedVector, false));
 
             var result = await _elasticSearchService.SearchAsync(query);
             return result?.Select(r => new DocumentSearchResult(r)).ToList() ?? new List<DocumentSearchResult>();

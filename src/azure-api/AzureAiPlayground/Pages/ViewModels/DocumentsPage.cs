@@ -38,6 +38,11 @@ namespace AzureAiPlayground.Pages.ViewModels
             SearchResult = await DocumentsViewModel.SearchKeywordAsync(KeywordSearch);
         }
 
+        public async Task PerformVectorSearch()
+        {
+            SearchResult = await DocumentsViewModel.SearchVectorAsync(KeywordSearch);
+        }
+
         public string SelectedRowClassFunc(DocumentSearchResult item, int rowNumber)
         {
             if (item == SelectedDocument)

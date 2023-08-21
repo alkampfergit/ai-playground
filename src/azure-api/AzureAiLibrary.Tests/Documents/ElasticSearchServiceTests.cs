@@ -182,6 +182,43 @@ public class ElasticSearchServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Can_add_single_vector_data_without_normalized_parts()
+    {
+        //when the service is inited it should cretate a mapping
+        await _sut.InitIndexAsync(_indexName);
+
+        //Arrange, save a document
+        ElasticDocument data = await SaveADocument();
+
+        //Act: add a new dense vector.
+        var vectorName = "test_vector_" + Guid.NewGuid().ToString().Replace("-", "");
+
+        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+            data.Id,
+            vectorName,
+            VectorData: GenerateRandomVector(512),
+            NormalizedVectorData: null,
+            Gpt35NormalizedVectorData: null,
+            Gpt35VectorData: GenerateRandomVector(512));
+        SingleDenseVectorData[] vectorList = new SingleDenseVectorData[] { singleDenseVectorData };
+        await _sut.IndexDenseVectorAsync(_indexName, vectorList);
+
+        //Assert: retrive the data and verify vectors are there
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, data.Id);
+        Assert.NotNull(reloaded);
+
+        //ok we need now to access the vectors.
+        var vector = reloaded.GetVector(vectorName);
+        Assert.NotNull(vector);
+        Assert.IsType<SingleDenseVectorData>(vector);
+        var v = (SingleDenseVectorData)vector;
+        Assert.Equal(singleDenseVectorData.VectorData, v.VectorData);
+        Assert.Equal(singleDenseVectorData.NormalizedVectorData, v.NormalizedVectorData);
+        Assert.Equal(singleDenseVectorData.Gpt35VectorData, v.Gpt35VectorData);
+        Assert.Equal(singleDenseVectorData.Gpt35NormalizedVectorData, v.Gpt35NormalizedVectorData);
+    }
+
+    [Fact]
     public async Task Can_add_two_types_of_vector_in_a_single_call()
     {
         //when the service is inited it should cretate a mapping
@@ -384,43 +421,28 @@ public class ElasticSearchServiceTests : IDisposable
     [Fact]
     public async Task can_search_vector()
     {
-        ElasticDocument data = new(Guid.NewGuid().ToString());
-        data.Title = "Test Title1";
-        data.AddTextProperty("content", "Some content "); 
-        
-        ElasticDocument data2 = new(Guid.NewGuid().ToString());
-        data2.Title = "Test Title2";
-        data2.AddTextProperty("content", "Some content ");
-
-        //index the document.
-        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data, data2 }));
-
-        //now add vectors
-        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
-            data.Id,
-            "blabla",
-            VectorData: new double[] { 1, 1, 1},
-            NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 },
-            Gpt35VectorData: new double[] { 1, 1, 1 },
-            Gpt35NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 });
-
-        //Second vector, actually a unit length vector.
-        SingleDenseVectorData singleDenseVectorData2 = new SingleDenseVectorData(
-            data2.Id,
-            "blabla",
-            VectorData: new double[] { 0, 1, 0 },
-            NormalizedVectorData: new double[] { 0, 1,0 },
-            Gpt35VectorData: new double[] { 0, 1, 0 },
-            Gpt35NormalizedVectorData: new double[] { 0, 1, 0 });
-
-        await _sut.IndexDenseVectorAsync(_indexName, new[] { singleDenseVectorData, singleDenseVectorData2 });
-        await _elasticClient.Indices.RefreshAsync(_indexName); //be sure index is refreshed.
+        ElasticDocument data = await IndexDataVectorAndReturnFirstDaeta();
 
         //assert: verify searching vectgor capabilities.
         var results = await _sut.SearchVectorAsync(
             _indexName,
-            "blabla", 
+            "blabla",
             new[] { 1, 0.7, 0.9 });
+        Assert.Equal(2, results.Count);
+        var first = results.First();
+        Assert.True(data.Id == first.Id, "first result is the correct one based on vector distance");
+    }
+
+    [Fact]
+    public async Task can_search_vector_with_query_model()
+    {
+        ElasticDocument data = await IndexDataVectorAndReturnFirstDaeta();
+
+        QueryDefinition query = new(_indexName, "penetration testing");
+        query.VectorSearches.Add(new VectorSearch("blabla", new[] { 1, 0.7, 0.9 }, UseGptVector: false));
+
+        //assert: verify searching vectgor capabilities.
+        var results = await _sut.SearchAsync(query);
         Assert.Equal(2, results.Count);
         var first = results.First();
         Assert.True(data.Id == first.Id, "first result is the correct one based on vector distance");
@@ -468,6 +490,79 @@ public class ElasticSearchServiceTests : IDisposable
             new[] { 1, 0.7, 0.9 });
         Assert.Equal(2, results.Count);
         var first = results.First();
+        Assert.True(data.Id == first.Id, "first result is the correct one based on vector distance");
+    }
+
+    private async Task<ElasticDocument> IndexDataVectorAndReturnFirstDaeta()
+    {
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data.Title = "Test Title1";
+        data.AddTextProperty("content", "Some content ");
+
+        ElasticDocument data2 = new(Guid.NewGuid().ToString());
+        data2.Title = "Test Title2";
+        data2.AddTextProperty("content", "Some content ");
+
+        //index the document.
+        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data, data2 }));
+
+        //now add vectors
+        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+            data.Id,
+            "blabla",
+            VectorData: new double[] { 1, 1, 1 },
+            NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 },
+            Gpt35VectorData: new double[] { 1, 1, 1 },
+            Gpt35NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 });
+
+        //Second vector, actually a unit length vector.
+        SingleDenseVectorData singleDenseVectorData2 = new SingleDenseVectorData(
+            data2.Id,
+            "blabla",
+            VectorData: new double[] { 0, 1, 0 },
+            NormalizedVectorData: new double[] { 0, 1, 0 },
+            Gpt35VectorData: new double[] { 0, 1, 0 },
+            Gpt35NormalizedVectorData: new double[] { 0, 1, 0 });
+
+        await _sut.IndexDenseVectorAsync(_indexName, new[] { singleDenseVectorData, singleDenseVectorData2 });
+        await _elasticClient.Indices.RefreshAsync(_indexName); //be sure index is refreshed.
+        return data;
+    }
+
+    [Fact]
+    public async Task can_search_vector_when_not_all_documents_has_vector()
+    {
+        ElasticDocument data = new(Guid.NewGuid().ToString());
+        data.Title = "Test Title1";
+        data.AddTextProperty("content", "Some content ");
+
+        ElasticDocument data2 = new(Guid.NewGuid().ToString());
+        data2.Title = "Test Title2";
+        data2.AddTextProperty("content", "Some content ");
+
+        //index the document.
+        Assert.True(await _sut.IndexAsync(_indexName, new ElasticDocument[] { data, data2 }));
+
+        //now add vectors
+        SingleDenseVectorData singleDenseVectorData = new SingleDenseVectorData(
+            data.Id,
+            "blabla",
+            VectorData: new double[] { 1, 1, 1 },
+            NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 },
+            Gpt35VectorData: new double[] { 1, 1, 1 },
+            Gpt35NormalizedVectorData: new double[] { 0.5774, 0.5774, 0.5774 });
+
+        //only the first document has vector data blabla 
+        await _sut.IndexDenseVectorAsync(_indexName, new[] { singleDenseVectorData });
+        await _elasticClient.Indices.RefreshAsync(_indexName); //be sure index is refreshed.
+
+        //assert: verify searching vectgor capabilities.
+        var results = await _sut.SearchVectorAsync(
+            _indexName,
+            "blabla",
+            new[] { 1, 0.7, 0.9 });
+        Assert.Equal(1, results.Count);
+        var first = results.Single();
         Assert.True(data.Id == first.Id, "first result is the correct one based on vector distance");
     }
 

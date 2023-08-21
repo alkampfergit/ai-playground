@@ -81,6 +81,7 @@ namespace AzureAiLibrary.Documents.Jobs
                 {
                     foreach (var embedding in pageEmbeddings)
                     {
+                        // important: in this version we avoid indexing normalizded vectors, they are not needed.
                         SingleDenseVectorData singleDenseVectorData;
                         if (embedding.VectorGpt35 != null)
                         {
@@ -88,9 +89,9 @@ namespace AzureAiLibrary.Documents.Jobs
                                 Id: pageId,
                                 FieldName: embedding.Model,
                                 VectorData: embedding.Vector.ToArray(),
-                                NormalizedVectorData: embedding.VectorNormalized.ToArray(),
+                                NormalizedVectorData: null, //embedding.VectorNormalized.ToArray(),
                                 Gpt35VectorData: embedding.VectorGpt35.ToArray(),
-                                Gpt35NormalizedVectorData: embedding.VectorGpt35Normalized.ToArray()
+                                Gpt35NormalizedVectorData: null //embedding.VectorGpt35Normalized.ToArray()
                             );
                         }
                         else
@@ -99,7 +100,7 @@ namespace AzureAiLibrary.Documents.Jobs
                                Id: pageId,
                                FieldName: embedding.Model,
                                VectorData: embedding.Vector.ToArray(),
-                               NormalizedVectorData: embedding.VectorNormalized.ToArray(),
+                               NormalizedVectorData: null, // embedding.VectorNormalized.ToArray(),
                                Gpt35VectorData: null,
                                Gpt35NormalizedVectorData: null
                            );

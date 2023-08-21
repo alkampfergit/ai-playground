@@ -26,7 +26,8 @@ def vectorize_text():
 
     encoded = model.encode(text)
 
-    response = {'vector': encoded.tolist()}
+    # Now return only the first result (we have only one vector) as array
+    response = {'vector': encoded[0].tolist()}
     return jsonify(response)
 
 if __name__ == '__main__':

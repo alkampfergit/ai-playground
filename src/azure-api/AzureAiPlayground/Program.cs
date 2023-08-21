@@ -2,6 +2,7 @@ using AzureAiLibrary;
 using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.Jobs;
+using AzureAiLibrary.Documents.Support;
 using AzureAiLibrary.Helpers;
 using AzureAiPlayground.Pages.ViewModels;
 using AzureAiPlayground.Support;
@@ -31,6 +32,7 @@ builder.Services.AddMudMarkdownServices();
 
 builder.Services.AddSingleton<FolderDatabaseFactory>();
 builder.Services.AddSingleton<TemplateHelper>();
+builder.Services.AddSingleton<PythonTokenizer>();
 var esservice = new ElasticSearchService(new Uri(documentsConfiguration.ElasticUrl));
 builder.Services.AddSingleton(esservice);
 builder.Services.AddSingleton<ITemplateManager, DefaultTemplateManager>();
@@ -48,6 +50,11 @@ foreach (var config in azureOpenAiConfiguration.Endpoints)
     {
         client.BaseAddress = new Uri(config.BaseAddress);
         client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
+    });
+
+    builder.Services.AddHttpClient("python_embeddings", client =>
+    {
+        client.BaseAddress = new Uri(documentsConfiguration.PythonTokenizerFlaskUrl);
     });
 }
 

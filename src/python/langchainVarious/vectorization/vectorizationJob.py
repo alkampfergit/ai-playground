@@ -111,11 +111,11 @@ while True:
             print(f"Vectorizing {num_pages} pages and {num_pages_gpt35} pages cleaned with GPT35.")
 
             # Vectorize the pages in batch.
-            pages_vector = model.encode(pages_vector)
-            pages_gpt35 = model.encode(pages_gpt35)
+            result_pages_vector = model.encode(pages_vector)
+            result_pages_gpt35 = model.encode(pages_gpt35)
 
-            pages_vector_normalized  = sklearn.preprocessing.normalize(pages_vector)
-            pages_gpt35_normalized = sklearn.preprocessing.normalize(pages_gpt35)
+            result_pages_vector_normalized  = sklearn.preprocessing.normalize(result_pages_vector)
+            result_pages_gpt35_normalized = sklearn.preprocessing.normalize(result_pages_gpt35)
 
             # Now save all the embeddings in embeddings collection
             # First remove all the embeddings for the same document
@@ -124,24 +124,24 @@ while True:
             for i in range(num_pages):
                 
                 page = pages[i]
-                
+                page_number = page["Number"]
                 # No need to add vectorization for removed pages.
                 if (page["Removed"]):
                     continue
 
                 embedding = {
                     'DocumentId': raw_document['_id'],
-                    'PageNumber': i,
-                    'Vector': pages_vector[i].tolist(),
-                    'VectorNormalized': pages_vector_normalized[i].tolist(),
+                    'PageNumber': page_number,
+                    'Vector': result_pages_vector[i].tolist(),
+                    'VectorNormalized': result_pages_vector_normalized[i].tolist(),
                     'Model': modelKey,
                     'CreatedOn': datetime.utcnow()
                 }
                 
                 # Insert the GPT35 vector only if the page was really processed with GPT35
-                if (page["Number"] not in missing_gpt35_indexes):
-                    embedding['VectorGpt35'] = pages_gpt35[i].tolist()
-                    embedding['VectorGpt35Normalized'] = pages_gpt35_normalized[i].tolist()
+                if (page_number not in missing_gpt35_indexes):
+                    embedding['VectorGpt35'] = result_pages_gpt35[i].tolist()
+                    embedding['VectorGpt35Normalized'] = result_pages_gpt35_normalized[i].tolist()
 
                 embeddings.insert_one(embedding)
 
