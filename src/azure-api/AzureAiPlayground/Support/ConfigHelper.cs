@@ -15,6 +15,7 @@ namespace AzureAiPlayground.Support
 
         public static void ConfigureDocumentsSection(this IServiceCollection services, IConfiguration configuration)
         {
+            services.AddSingleton<ExploreDocumentViewModel>();
             services.AddSingleton<DocumentsViewModel>();
         }
         

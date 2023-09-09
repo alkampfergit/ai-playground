@@ -10,6 +10,7 @@
 *.userosscache
 *.sln.docstates
 **/.DS_store
+**/.idea
 
 # Some virtual env used in the project
 **/deep

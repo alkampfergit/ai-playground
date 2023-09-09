@@ -1,0 +1,18 @@
+@page "/exploredocument"
+@inherits ViewModels.ExploreDocumentPage;
+
+@inject NavigationManager _navManager;
+
+<h2>Single document playground</h2>
+
+
+<MudContainer Style="max-width:  margin: auto;">
+
+    <MudCard>
+        <MudCardContent>
+            <h3>Document Extraction </h3>
+            <MudTextField @bind-Value="@FilePathToImport" Label="Path"/>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ExtractDocument">Load From disk</MudButton>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
