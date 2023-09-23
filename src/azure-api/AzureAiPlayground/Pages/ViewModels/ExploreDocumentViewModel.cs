@@ -13,11 +13,11 @@ namespace AzureAiPlayground.Pages.ViewModels;
 
 public class ExploreDocumentViewModel
 {
-    private IMongoDatabase _mongoDatabase;
-    private TikaOutOfProcess _tikaOutOfProcess;
+    private readonly TikaOutOfProcess _tikaOutOfProcess;
     private readonly IMongoCollection<SingleDocument> _docCollection;
     private readonly IMongoCollection<SingleDocumentPage> _pagesCollection;
     private readonly TikToken _tikTokTokenizer;
+    private readonly IMongoCollection<DocumentSegment> _segmentCollection;
 
     public ExploreDocumentViewModel(
         IOptionsMonitor<DocumentsConfig> documentsConfig,
@@ -27,10 +27,11 @@ public class ExploreDocumentViewModel
         var url = new MongoUrl(documentsConfig.CurrentValue.MongoUrl);
         var settings = MongoClientSettings.FromUrl(url);
         var client = new MongoClient(settings);
-        _mongoDatabase = client.GetDatabase("DocSampleV1");
+        var mongoDatabase = client.GetDatabase("DocSampleV1");
 
-        _docCollection = _mongoDatabase.GetCollection<SingleDocument>("SingleDocument");
-        _pagesCollection = _mongoDatabase.GetCollection<SingleDocumentPage>("SingleDocumentPages");
+        _docCollection = mongoDatabase.GetCollection<SingleDocument>("SingleDocument");
+        _pagesCollection = mongoDatabase.GetCollection<SingleDocumentPage>("SingleDocumentPages");
+        _segmentCollection = mongoDatabase.GetCollection<DocumentSegment>("DocumentSegments");
         
         // check we can access the database reading collection 
         var count = _docCollection.CountDocuments(new BsonDocument());
@@ -63,7 +64,9 @@ public class ExploreDocumentViewModel
         {
             //load all the pages from mongo
             var loadedPages = _pagesCollection.Find(x => x.SingleDocumentId == docId).ToList();
-            CurrentDocument = new UiSingleDocument(doc, loadedPages);
+            // load all segments from mongo
+            var segments = _segmentCollection.Find(x => x.SingleDocumentId == docId).ToList();
+            CurrentDocument = new UiSingleDocument(doc, loadedPages, segments);
             return;
         }
 
@@ -78,6 +81,17 @@ public class ExploreDocumentViewModel
         {
             page.Page.TokenCount = _tikTokTokenizer.Encode(page.Page.Content).Count;
         }
+        await SaveCurrentDocumentInMongoDb();
+    }
+    
+    public async Task SegmentDocument()
+    {
+        if (CurrentDocument == null) return;
+
+        //ok we need to segment document using pages content and using a certain amount of token.
+       
+        
+
         await SaveCurrentDocumentInMongoDb();
     }
 
@@ -109,7 +123,7 @@ public class ExploreDocumentViewModel
             pages.Add(documentPage);
         }
 
-        CurrentDocument = new UiSingleDocument(singleDocument, pages);
+        CurrentDocument = new UiSingleDocument(singleDocument, pages, Array.Empty<DocumentSegment>());
         await SaveDocumentAsync(singleDocument, pages);
     }
 
@@ -133,14 +147,25 @@ public class ExploreDocumentViewModel
 
 public class UiSingleDocument
 {
-    public UiSingleDocument(SingleDocument document, IEnumerable<SingleDocumentPage> pages)
+    public UiSingleDocument(
+        SingleDocument document,
+        IEnumerable<SingleDocumentPage> pages,
+        IEnumerable<DocumentSegment> segments)
     {
         Document = document;
         Pages = pages
             .OrderBy(p => p.PageNumber)
             .Select(p => new UiSingleDocumentPage(p))
             .ToArray();
+        
+        Segments = segments
+            .OrderBy(p => p.PageNumber)
+            .Select(p => new UiSingleDocumentSegment(p))
+            .ToArray();
+            
     }
+
+    public UiSingleDocumentSegment[] Segments { get; set; }
 
     public SingleDocument Document { get; set; }
     
@@ -157,6 +182,18 @@ public class UiSingleDocumentPage
     public bool ShowDetails { get; set; } = false;
 
     public SingleDocumentPage Page { get; set; }
+}
+
+public class UiSingleDocumentSegment
+{
+    public UiSingleDocumentSegment(DocumentSegment segment)
+    {
+        Segment = segment;
+    }
+
+    public bool ShowDetails { get; set; } = false;
+
+    public DocumentSegment Segment { get; set; }
 }
 
 /// <summary>
@@ -188,6 +225,38 @@ public class SingleDocumentPage
     public ObjectId Id { get; set; }
 
     public int PageNumber { get; set; }
+    public string SingleDocumentId { get; set; }
+
+    public string Content { get; set; }
+
+    public int? TokenCount { get; set; }
+}
+
+/// <summary>
+/// Subdividing text in pages as for Tika extractino is not smart ,it is much
+/// better to divide the text in chunks
+/// </summary>
+public class DocumentSegment
+{
+    public DocumentSegment( string singleDocumentId, int pageNumber, string content, int tokenCount)
+    {
+        Id = ObjectId.GenerateNewId();
+        SingleDocumentId = singleDocumentId;
+        PageNumber = pageNumber;
+        Content = content;
+        TokenCount = tokenCount;
+    }
+
+    public ObjectId Id { get; set; }
+
+    /// <summary>
+    /// We can maintain the information of the page the segment belongs to
+    /// </summary>
+    public int PageNumber { get; set; }
+    
+    /// <summary>
+    /// Clearly we need to reference the document
+    /// </summary>
     public string SingleDocumentId { get; set; }
 
     public string Content { get; set; }
