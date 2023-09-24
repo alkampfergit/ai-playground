@@ -10,6 +10,7 @@ public class ExploreDocumentPage : ComponentBase
     [Inject] public ExploreDocumentViewModel ViewModel { get; set; } = null!;
 
     public MudTable<UiSingleDocumentPage> ResultTable { get; set; } = null!;
+    public MudTable<UiSingleDocumentSegment> SegmentsTable { get; set; } = null!;
 
     public UiSingleDocumentPage SelectedPage { get; set; }
 

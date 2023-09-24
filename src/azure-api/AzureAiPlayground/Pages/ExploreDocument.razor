@@ -85,8 +85,24 @@
             @*     </MudExpansionPanel> *@
             @* </MudExpansionPanels> *@
         </MudTabPanel>
-        <MudTabPanel Text="Tab Two">
-            <MudText>Content Two</MudText>
+        <MudTabPanel Text="Segments">
+             <MudText>@ViewModel.CurrentDocument?.Document?.Id</MudText>
+                        <MudTable T="UiSingleDocumentSegment"
+                                  Items="@(ViewModel.CurrentDocument?.Segments ?? Array.Empty<UiSingleDocumentSegment>())"
+                                  @ref="SegmentsTable">
+                            <HeaderContent>
+                                <MudTh>Page Number</MudTh>
+                                <MudTh>Content</MudTh>
+                                <MudTh>Token Count</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                
+                                <MudTd DataLabel="PageNumber">@context.Segment.PageNumber</MudTd>
+                                <MudTd DataLabel="TokenCount">@context.Segment.Content</MudTd>
+                                <MudTd DataLabel="TokenCount">@context.Segment.TokenCount</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
         </MudTabPanel>
 
     </MudTabs>

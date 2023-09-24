@@ -10,6 +10,14 @@ public class Segmenter
     private readonly int _tokenOverlap;
     private readonly TikToken _tikTokTokenizer;
 
+    /// <summary>
+    /// This is the class that contains a segmented result.
+    /// </summary>
+    /// <param name="Content"></param>
+    /// <param name="Index"></param>
+    /// <param name="TokenCount"></param>
+    public record SegmentInfo(string Content, int Index, int TokenCount);
+    
     public Segmenter(int tokenLength, int tokenOverlap)
     {
         _tokenLength = tokenLength;
@@ -27,50 +35,78 @@ public class Segmenter
     /// </summary>
     /// <param name="segments">Segmented text</param>
     /// <returns></returns>
-    public IReadOnlyCollection<string> Segment(IEnumerable<string> segments)
+    public IReadOnlyCollection<SegmentInfo> Segment(IEnumerable<string> segments)
     {
         //first we split all segments with spaces, then store into an array
         //where we calculate the length in token of each word
-        List<(string Word, int TokenCount)> words = new();
+        List<(string Word, int TokenCount, int index)> words = new();
+        //convert next foreach to for
+        int index = 0;
         foreach (var segment in segments)
         {
-            var tokens = segment.Split(' ');
+            //split the word using spaces and carriage return
+            //also we have bad words that are too long (symbols sequences)
+            var tokens = segment
+                .Split(' ','\n')
+                .Select(s => s.Trim(' ', '\r', '\n'))
+                .Where(t => t.Length < 30);
+            
             foreach (var token in tokens)
             {
                 var tokenCount = _tikTokTokenizer.Encode(token).Count;
-                words.Add((token, tokenCount));
+                words.Add((token, tokenCount, index));
             }
+
+            index++;
         }
         
         //now we can iterate in all the words and create segments based
         //on length of the token precalculated.
-        var result = new List<string>();
+        var result = new List<SegmentInfo>();
         var currentSegment = new StringBuilder();
         var currentTokenCount = 0;
-        var index = 0;
+        index = 0;
         while (index < words.Count)
         {
             var word = words[index];
+            currentSegment.Append(word.Word);
             if (currentTokenCount + word.TokenCount > _tokenLength)
             {
                 //we need to create a new segment
-                result.Add(currentSegment.ToString());
+                result.Add(new SegmentInfo(currentSegment.ToString(), word.index, currentTokenCount));
                 currentSegment.Clear();
                 currentTokenCount = 0;
-                
+
                 // ok we found a segment, now we need to go backward to create the overlap
                 //because we want next segment to overlap with current
+                //we cannot come back more than the starting point because we could end in a loop
+                //this can happen if the text has some anomalies like a very long word
+                if (index == words.Count - 1)
+                {
+                    //we are at the end of the text, we cannot go back
+                    break;
+                };
                 var tokenToGoBack = _tokenOverlap;
                 while (tokenToGoBack > 0 && index > 0)
                 {
                     index--;
-                    tokenToGoBack -= words[index].TokenCount;
+                    //beware of long tokens
+                    var tokenLength = words[index].TokenCount;
+                    if (tokenLength > _tokenOverlap)
+                    {
+                       //token too long, skip
+                       index++;
+                       tokenToGoBack = 0;
+                    }
+                    else
+                    {
+                        tokenToGoBack -= words[index].TokenCount;
+                    }
                 }
 
                 continue;
             }
-
-            currentSegment.Append(word.Word);
+            
             currentSegment.Append(' ');
             currentTokenCount += word.TokenCount;
             index++;
@@ -79,7 +115,7 @@ public class Segmenter
         if (currentTokenCount > _tokenOverlap)
         {
             //we need to create a new segment
-            result.Add(currentSegment.ToString());
+            result.Add(new SegmentInfo(currentSegment.ToString(), words[^1].index, currentTokenCount));
         }
 
         return result;

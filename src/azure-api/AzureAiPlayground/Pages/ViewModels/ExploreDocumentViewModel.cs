@@ -3,6 +3,7 @@ using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.Jobs;
 using AzureAiLibrary.Documents.Support;
+using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -88,10 +89,28 @@ public class ExploreDocumentViewModel
     {
         if (CurrentDocument == null) return;
 
-        //ok we need to segment document using pages content and using a certain amount of token.
-       
+        //first we need to take all the pages of the current document and extract only the text
+        List<string> pagesContent = new List<string>();
+        foreach (var page in CurrentDocument.Pages)
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(page.Page.Content);
+            var content = doc.DocumentNode.InnerText;
+            content = System.Web.HttpUtility.HtmlDecode(content).Trim(' ', '\r', '\n');
+            pagesContent.Add(content);
+        }
         
-
+        //ok we need to segment document using pages content and using a certain amount of token.
+        var segmenter = new Segmenter(400, 15);
+        var segments = segmenter.Segment(pagesContent);
+        CurrentDocument.Segments = segments
+            .Select(x => new DocumentSegment(
+                CurrentDocument.Document.Id,
+                x.Index,
+                x.Content,
+                x.TokenCount))
+            .Select(d => new UiSingleDocumentSegment(d))
+            .ToArray();
         await SaveCurrentDocumentInMongoDb();
     }
 
@@ -99,7 +118,10 @@ public class ExploreDocumentViewModel
     {
         if (CurrentDocument == null) return;
         
-        await SaveDocumentAsync(CurrentDocument.Document, CurrentDocument.Pages.Select(p => p.Page));
+        await SaveDocumentAsync(
+            CurrentDocument.Document, 
+            CurrentDocument.Pages.Select(p => p.Page),
+            CurrentDocument.Segments.Select(s => s.Segment));
     }
 
     private async Task GetDocumentFromFileWithTikaAsync(string docId, string path)
@@ -124,10 +146,13 @@ public class ExploreDocumentViewModel
         }
 
         CurrentDocument = new UiSingleDocument(singleDocument, pages, Array.Empty<DocumentSegment>());
-        await SaveDocumentAsync(singleDocument, pages);
+        await SaveDocumentAsync(singleDocument, pages, null);
     }
 
-    private async Task SaveDocumentAsync(SingleDocument doc, IEnumerable<SingleDocumentPage> pages)
+    private async Task SaveDocumentAsync(
+        SingleDocument doc,
+        IEnumerable<SingleDocumentPage> pages,
+        IEnumerable<DocumentSegment>? segments)
     {
         // Save the document and all the pages replacing all previous data in mongodb
         await _docCollection.ReplaceOneAsync(
@@ -137,11 +162,17 @@ public class ExploreDocumentViewModel
             {
                 IsUpsert = true
             });
-        
+
         // Save all the pages in a single bulk operation, first delete already existing
         // pages related to this document then save in bulk all the pages
         await _pagesCollection.DeleteManyAsync(x => x.SingleDocumentId == doc.Id);
         await _pagesCollection.InsertManyAsync(pages);
+
+        if (segments != null)
+        {
+            await _segmentCollection.DeleteManyAsync(x => x.SingleDocumentId == doc.Id);
+            await _segmentCollection.InsertManyAsync(segments);
+        }
     }
 }
 
