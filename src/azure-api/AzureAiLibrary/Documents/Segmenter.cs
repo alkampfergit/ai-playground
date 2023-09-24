@@ -23,8 +23,17 @@ public class Segmenter
             var doc = new ElasticDocument(Guid.NewGuid().ToString());
             doc.AddTextProperty("content", this.Content);
             doc.AddNumericProperty("page", this.Index);
+            doc.AddNumericProperty("tokencount", this.TokenCount);
             doc.AddStringProperty("docid", docId);
             return doc;
+        }
+
+        public static SegmentInfo FromElasticDocument(ElasticDocument doc)
+        {
+            var content = doc.GetTextProperty("content") ?? "";
+            var index = (int) (doc.GetNumericProperty("page") ?? 0);
+            var tokenCount = (int) (doc.GetNumericProperty("tokencount") ?? 0);
+            return new SegmentInfo(content, index, tokenCount);
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using AzureAiLibrary;
+﻿using System.Threading.RateLimiting;
+using AzureAiLibrary;
 using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.Jobs;
@@ -194,6 +195,35 @@ public class ExploreDocumentViewModel
             await _segmentCollection.InsertManyAsync(segments);
         }
     }
+    
+    #region Keyword search
+    
+    public string? KeywordSearch { get; set; }
+
+    public ExploreDocumentSearchViewModel SearchViewModel = new ExploreDocumentSearchViewModel();
+    public async Task DoKeywordSearch()
+    {
+        if (string.IsNullOrEmpty(KeywordSearch)) return;
+            
+        //ok we need to search
+        SearchViewModel.Clear();
+
+        //simple elastic search query
+        var result = await _esService.SearchAsync(
+            _segmentsIndexName,
+            new [] {"content"}, 
+            KeywordSearch);
+
+        SearchViewModel.SegmentsQueryResults = result
+            .Select(x => ( 
+                Segmenter.SegmentInfo.FromElasticDocument(x), 
+                x.GetStringProperty("docid") ?? ""))
+            .Select(d => new DocumentSegment(d.Item2, d.Item1.Index, d.Item1.Content, d.Item1.TokenCount))
+            .Select(d => new UiSingleDocumentSegment(d))
+            .ToList();
+    }
+
+    #endregion
 }
 
 public class UiSingleDocument

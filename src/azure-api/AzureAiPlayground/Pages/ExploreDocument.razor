@@ -20,15 +20,24 @@
                 <MudItem xs="12" md="6">
                     <!-- Use the desired column sizes here -->
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ExtractDocument">Load From disk</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.UpdateCountToken">Update Token Count</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.SegmentDocument">Segment</MudButton>
                 </MudItem>
             </MudGrid>
         </MudCardContent>
     </MudCard>
-    
+
     <MudCard hidden="@(ViewModel.CurrentDocument == null)">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.UpdateCountToken">Update Token Count</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.SegmentDocument">Segment</MudButton>
-                       
+        <MudGrid>
+            <MudItem xs="12" md="9">
+                <!-- Use the desired column sizes here -->
+                <MudTextField @bind-Value="@ViewModel.KeywordSearch" Label="Keyword search"/>
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <!-- Use the desired column sizes here -->
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordSearch">Keyword Search</MudButton>
+            </MudItem>
+        </MudGrid>
     </MudCard>
 
     <MudTabs Elevation="2" hidden="@(ViewModel.CurrentDocument == null)" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
@@ -86,22 +95,41 @@
             @* </MudExpansionPanels> *@
         </MudTabPanel>
         <MudTabPanel Text="Segments">
-             <MudText>@ViewModel.CurrentDocument?.Document?.Id</MudText>
-                        <MudTable T="UiSingleDocumentSegment"
-                                  Items="@(ViewModel.CurrentDocument?.Segments ?? Array.Empty<UiSingleDocumentSegment>())"
-                                  @ref="SegmentsTable">
-                            <HeaderContent>
-                                <MudTh>Page Number</MudTh>
-                                <MudTh>Content</MudTh>
-                                <MudTh>Token Count</MudTh>
-                            </HeaderContent>
-                            <RowTemplate>
-                                
-                                <MudTd DataLabel="PageNumber">@context.Segment.PageNumber</MudTd>
-                                <MudTd DataLabel="TokenCount">@context.Segment.Content</MudTd>
-                                <MudTd DataLabel="TokenCount">@context.Segment.TokenCount</MudTd>
-                            </RowTemplate>
-                        </MudTable>
+            <MudText>@ViewModel.CurrentDocument?.Document?.Id</MudText>
+            <MudTable T="UiSingleDocumentSegment"
+                      Items="@(ViewModel.CurrentDocument?.Segments ?? Array.Empty<UiSingleDocumentSegment>())"
+                      @ref="SegmentsTable">
+                <HeaderContent>
+                    <MudTh>Page Number</MudTh>
+                    <MudTh>Content</MudTh>
+                    <MudTh>Token Count</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+
+                    <MudTd DataLabel="PageNumber">@context.Segment.PageNumber</MudTd>
+                    <MudTd DataLabel="TokenCount">@context.Segment.Content</MudTd>
+                    <MudTd DataLabel="TokenCount">@context.Segment.TokenCount</MudTd>
+                </RowTemplate>
+            </MudTable>
+
+        </MudTabPanel>
+        <MudTabPanel Text="Keyword Result">
+            <MudText>Search Result</MudText>
+            <MudTable T="UiSingleDocumentSegment"
+                      Items="@(ViewModel.SearchViewModel.SegmentsQueryResults)"
+                      @ref="SegmentsTable">
+                <HeaderContent>
+                    <MudTh>Page Number</MudTh>
+                    <MudTh>Content</MudTh>
+                    <MudTh>Token Count</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+
+                    <MudTd DataLabel="PageNumber">@context.Segment.PageNumber</MudTd>
+                    <MudTd DataLabel="TokenCount">@context.Segment.Content</MudTd>
+                    <MudTd DataLabel="TokenCount">@context.Segment.TokenCount</MudTd>
+                </RowTemplate>
+            </MudTable>
 
         </MudTabPanel>
 
