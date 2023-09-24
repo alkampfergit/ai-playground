@@ -16,8 +16,18 @@ public class Segmenter
     /// <param name="Content"></param>
     /// <param name="Index"></param>
     /// <param name="TokenCount"></param>
-    public record SegmentInfo(string Content, int Index, int TokenCount);
-    
+    public record SegmentInfo(string Content, int Index, int TokenCount)
+    {
+        public ElasticDocument ToElasticDocument(string docId)
+        {
+            var doc = new ElasticDocument(Guid.NewGuid().ToString());
+            doc.AddTextProperty("content", this.Content);
+            doc.AddNumericProperty("page", this.Index);
+            doc.AddStringProperty("docid", docId);
+            return doc;
+        }
+    }
+
     public Segmenter(int tokenLength, int tokenOverlap)
     {
         _tokenLength = tokenLength;

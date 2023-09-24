@@ -19,6 +19,8 @@ public class ExploreDocumentViewModel
     private readonly IMongoCollection<SingleDocumentPage> _pagesCollection;
     private readonly TikToken _tikTokTokenizer;
     private readonly IMongoCollection<DocumentSegment> _segmentCollection;
+    private readonly ElasticSearchService _esService;
+    private readonly string _segmentsIndexName;
 
     public ExploreDocumentViewModel(
         IOptionsMonitor<DocumentsConfig> documentsConfig,
@@ -34,6 +36,9 @@ public class ExploreDocumentViewModel
         _pagesCollection = mongoDatabase.GetCollection<SingleDocumentPage>("SingleDocumentPages");
         _segmentCollection = mongoDatabase.GetCollection<DocumentSegment>("DocumentSegments");
         
+        _esService = new ElasticSearchService(new Uri(documentsConfig.CurrentValue.ElasticUrl));
+        _segmentsIndexName = "explore-document-segments";
+        
         // check we can access the database reading collection 
         var count = _docCollection.CountDocuments(new BsonDocument());
         
@@ -47,8 +52,13 @@ public class ExploreDocumentViewModel
         _tikTokTokenizer = TikToken.GetEncoding("cl100k_base");
     }
     
-    public UiSingleDocument? CurrentDocument { get; set; } 
-    
+    public UiSingleDocument? CurrentDocument { get; set; }
+
+    public async Task Init()
+    {
+        await _esService.InitIndexAsync(_segmentsIndexName);
+    }
+
     /// <summary>
     /// Uses tika to extract document metadata and document pages from a single document, it will return
     /// the original tika extracted page, containing HTML.
@@ -111,7 +121,17 @@ public class ExploreDocumentViewModel
                 x.TokenCount))
             .Select(d => new UiSingleDocumentSegment(d))
             .ToArray();
+        
         await SaveCurrentDocumentInMongoDb();
+        
+        //after segmentation we need to index the segments in elastic search
+        var elasticDocuments = segments
+            .Select(s => s.ToElasticDocument(CurrentDocument.Document.Id))
+            .ToList();
+        //drop all existing segments for this doc id
+        await _esService.DeleteByStringPropertyAsync(_segmentsIndexName, "docid" ,CurrentDocument.Document.Id);
+        //then index everything
+        await _esService.IndexAsync(_segmentsIndexName, elasticDocuments);
     }
 
     private async Task SaveCurrentDocumentInMongoDb()

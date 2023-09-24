@@ -617,4 +617,17 @@ public class ElasticSearchService
     public record FieldsDefinition(string FieldName, double Boost = 1);
 
     public record VectorSearch(string VectorType, double[] VectorData, bool UseGptVector = false);
+
+    public async Task DeleteByStringPropertyAsync(string indexName, string propertyName, string propertyValue)
+    {
+        await _elasticClient
+            .DeleteByQueryAsync<ElasticDocument>(qd => qd
+                .Index(indexName)
+                .Query(q => q.Term($"s_{propertyName}.kw", propertyValue)));
+    }
+    
+    public Task Refresh(string indexName)
+    {
+        return _elasticClient.Indices.RefreshAsync(indexName);
+    }
 }

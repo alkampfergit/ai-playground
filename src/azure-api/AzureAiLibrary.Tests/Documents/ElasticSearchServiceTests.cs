@@ -54,6 +54,29 @@ public class ElasticSearchServiceTests : IDisposable
 
         Assert.True(mappings.IsValid);
     }
+    
+    [Fact]
+    public async Task Can_delete_by_query()
+    {
+        //when the service is inited it should cretate a mapping
+        await _sut.InitIndexAsync(_indexName);
+        var doc1 = new ElasticDocument(Guid.NewGuid().ToString());
+        doc1.AddStringProperty("customer", "foo");
+        var doc2 = new ElasticDocument(Guid.NewGuid().ToString());
+        doc2.AddStringProperty("customer", "baz");
+        var insert = await _sut.IndexAsync(_indexName, new [] {doc1, doc2}) ;
+        await _sut.Refresh(_indexName);
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, doc1.Id);
+        Assert.NotNull(reloaded);
+
+        await _sut.DeleteByStringPropertyAsync(_indexName, "customer", "foo");
+        await _sut.Refresh(_indexName);
+        
+        reloaded = await _sut.GetByIdAsync(_indexName, doc1.Id);
+        Assert.Null(reloaded);
+        reloaded = await _sut.GetByIdAsync(_indexName, doc2.Id);
+        Assert.NotNull(reloaded);
+    }
 
     [Fact]
     public async Task When_add_dense_vector_mapping_is_created()

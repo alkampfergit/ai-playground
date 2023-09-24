@@ -21,7 +21,13 @@ public class ExploreDocumentPage : ComponentBase
         var id = System.IO.Path.GetFileName(FilePathToImport);
         await ViewModel.ExtractDocument(FilePathToImport!, id);
     }
-    
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await ViewModel.Init();
+    }
+
     public string SelectedRowClassFunc(UiSingleDocumentPage item, int rowNumber)
     {
         if (item == SelectedPage)
