@@ -1,15 +1,12 @@
-﻿using System.Threading.RateLimiting;
-using AzureAiLibrary;
+﻿using AzureAiLibrary;
 using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Documents;
-using AzureAiLibrary.Documents.Jobs;
 using AzureAiLibrary.Documents.Support;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using TiktokenSharp;
-using static AzureAiLibrary.Documents.ElasticSearchService;
 
 namespace AzureAiPlayground.Pages.ViewModels;
 
@@ -36,23 +33,23 @@ public class ExploreDocumentViewModel
         _docCollection = mongoDatabase.GetCollection<SingleDocument>("SingleDocument");
         _pagesCollection = mongoDatabase.GetCollection<SingleDocumentPage>("SingleDocumentPages");
         _segmentCollection = mongoDatabase.GetCollection<DocumentSegment>("DocumentSegments");
-        
+
         _esService = new ElasticSearchService(new Uri(documentsConfig.CurrentValue.ElasticUrl));
         _segmentsIndexName = "explore-document-segments";
-        
+
         // check we can access the database reading collection 
         var count = _docCollection.CountDocuments(new BsonDocument());
-        
+
         // Need to use Tika to extract document.
-        _tikaOutOfProcess = 
+        _tikaOutOfProcess =
             new TikaOutOfProcess(
                 documentsConfig.CurrentValue.JavaBin,
                 documentsConfig.CurrentValue.Tika);
-        
+
         TikToken.PBEFileDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Files");
         _tikTokTokenizer = TikToken.GetEncoding("cl100k_base");
     }
-    
+
     public UiSingleDocument? CurrentDocument { get; set; }
 
     public async Task Init()
@@ -95,7 +92,7 @@ public class ExploreDocumentViewModel
         }
         await SaveCurrentDocumentInMongoDb();
     }
-    
+
     public async Task SegmentDocument()
     {
         if (CurrentDocument == null) return;
@@ -110,7 +107,7 @@ public class ExploreDocumentViewModel
             content = System.Web.HttpUtility.HtmlDecode(content).Trim(' ', '\r', '\n');
             pagesContent.Add(content);
         }
-        
+
         //ok we need to segment document using pages content and using a certain amount of token.
         var segmenter = new Segmenter(400, 15);
         var segments = segmenter.Segment(pagesContent);
@@ -122,15 +119,15 @@ public class ExploreDocumentViewModel
                 x.TokenCount))
             .Select(d => new UiSingleDocumentSegment(d))
             .ToArray();
-        
+
         await SaveCurrentDocumentInMongoDb();
-        
+
         //after segmentation we need to index the segments in elastic search
         var elasticDocuments = segments
             .Select(s => s.ToElasticDocument(CurrentDocument.Document.Id))
             .ToList();
         //drop all existing segments for this doc id
-        await _esService.DeleteByStringPropertyAsync(_segmentsIndexName, "docid" ,CurrentDocument.Document.Id);
+        await _esService.DeleteByStringPropertyAsync(_segmentsIndexName, "docid", CurrentDocument.Document.Id);
         //then index everything
         await _esService.IndexAsync(_segmentsIndexName, elasticDocuments);
     }
@@ -138,9 +135,9 @@ public class ExploreDocumentViewModel
     private async Task SaveCurrentDocumentInMongoDb()
     {
         if (CurrentDocument == null) return;
-        
+
         await SaveDocumentAsync(
-            CurrentDocument.Document, 
+            CurrentDocument.Document,
             CurrentDocument.Pages.Select(p => p.Page),
             CurrentDocument.Segments.Select(s => s.Segment));
     }
@@ -195,28 +192,94 @@ public class ExploreDocumentViewModel
             await _segmentCollection.InsertManyAsync(segments);
         }
     }
-    
+
     #region Keyword search
-    
+
     public string? KeywordSearch { get; set; }
 
     public ExploreDocumentSearchViewModel SearchViewModel = new ExploreDocumentSearchViewModel();
     public async Task DoKeywordSearch()
     {
         if (string.IsNullOrEmpty(KeywordSearch)) return;
-            
+
         //ok we need to search
         SearchViewModel.Clear();
 
+        await SearchInAtlas();
+        //await SearchInElasticsearch();
+    }
+
+    private async Task SearchInAtlas()
+    {
+        var searchStage = new BsonDocument
+        {
+            {
+                "$search", new BsonDocument
+                {
+                    { "index", "segments" },
+                    {
+                        "queryString", new BsonDocument
+                        {
+                            { "query", KeywordSearch },
+                            { "defaultPath", "Content" }
+                        }
+                    },
+                    {
+                        "highlight", new BsonDocument
+                        {
+                            { "path", "Content" }
+                        }
+                    },
+                    {
+                        "scoreDetails" , true
+                    }
+                }
+            }
+        };
+
+        var projectStage = new BsonDocument
+        {
+            {
+              "$project", new BsonDocument {
+                { "description", 1 },
+                { "_id", 0 },
+                { "PageNumber", 1 },
+                { "Content", 1 },
+                { "SingleDocumentId", 1 },
+                { "highlights", new BsonDocument("$meta", "searchHighlights") } }
+              }
+        };
+
+        var pipeline = new List<BsonDocument> { searchStage, projectStage };
+        var resultAggregateAsync = await _segmentCollection.AggregateAsync<BsonDocument>(pipeline);
+
+        var result = await resultAggregateAsync.ToListAsync();
+
+        foreach (var doc in result)
+        {
+            System.Console.WriteLine(doc.ToJson());
+        }
+
+        //SearchViewModel.SegmentsQueryResults = result
+        //    .Select(x => (
+        //        Segmenter.SegmentInfo.FromElasticDocument(x),
+        //        x.GetStringProperty("docid") ?? ""))
+        //    .Select(d => new DocumentSegment(d.Item2, d.Item1.Index, d.Item1.Content, d.Item1.TokenCount))
+        //    .Select(d => new UiSingleDocumentSegment(d))
+        //    .ToList();
+    }
+
+    private async Task SearchInElasticsearch()
+    {
         //simple elastic search query
         var result = await _esService.SearchAsync(
             _segmentsIndexName,
-            new [] {"content"}, 
+            new[] { "content" },
             KeywordSearch);
 
         SearchViewModel.SegmentsQueryResults = result
-            .Select(x => ( 
-                Segmenter.SegmentInfo.FromElasticDocument(x), 
+            .Select(x => (
+                Segmenter.SegmentInfo.FromElasticDocument(x),
                 x.GetStringProperty("docid") ?? ""))
             .Select(d => new DocumentSegment(d.Item2, d.Item1.Index, d.Item1.Content, d.Item1.TokenCount))
             .Select(d => new UiSingleDocumentSegment(d))
@@ -238,18 +301,17 @@ public class UiSingleDocument
             .OrderBy(p => p.PageNumber)
             .Select(p => new UiSingleDocumentPage(p))
             .ToArray();
-        
+
         Segments = segments
             .OrderBy(p => p.PageNumber)
             .Select(p => new UiSingleDocumentSegment(p))
             .ToArray();
-            
     }
 
     public UiSingleDocumentSegment[] Segments { get; set; }
 
     public SingleDocument Document { get; set; }
-    
+
     public IReadOnlyCollection<UiSingleDocumentPage> Pages { get; set; }
 }
 
@@ -295,7 +357,7 @@ public class SingleDocument
 /// </summary>
 public class SingleDocumentPage
 {
-    public SingleDocumentPage( string singleDocumentId, int pageNumber, string content)
+    public SingleDocumentPage(string singleDocumentId, int pageNumber, string content)
     {
         SingleDocumentId = singleDocumentId;
         PageNumber = pageNumber;
@@ -319,7 +381,7 @@ public class SingleDocumentPage
 /// </summary>
 public class DocumentSegment
 {
-    public DocumentSegment( string singleDocumentId, int pageNumber, string content, int tokenCount)
+    public DocumentSegment(string singleDocumentId, int pageNumber, string content, int tokenCount)
     {
         Id = ObjectId.GenerateNewId();
         SingleDocumentId = singleDocumentId;
@@ -334,7 +396,7 @@ public class DocumentSegment
     /// We can maintain the information of the page the segment belongs to
     /// </summary>
     public int PageNumber { get; set; }
-    
+
     /// <summary>
     /// Clearly we need to reference the document
     /// </summary>
