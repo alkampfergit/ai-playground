@@ -115,19 +115,20 @@
         </MudTabPanel>
         <MudTabPanel Text="Keyword Result">
             <MudText>Search Result</MudText>
-            <MudTable T="UiSingleDocumentSegment"
+            <MudTable T="ExploreDocumentSearchViewModel.DocumentContentSearchResult"
                       Items="@(ViewModel.SearchViewModel.SegmentsQueryResults)"
-                      @ref="SegmentsTable">
+                      @ref="SearchResultTable">
                 <HeaderContent>
+                    <MudTh>DocId</MudTh>
                     <MudTh>Page Number</MudTh>
                     <MudTh>Content</MudTh>
-                    <MudTh>Token Count</MudTh>
+                    <MudTh>Highlight Count</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-
-                    <MudTd DataLabel="PageNumber">@context.Segment.PageNumber</MudTd>
-                    <MudTd DataLabel="TokenCount">@context.Segment.Content</MudTd>
-                    <MudTd DataLabel="TokenCount">@context.Segment.TokenCount</MudTd>
+                    <MudTd DataLabel="DocId">@context.Id</MudTd>
+                    <MudTd DataLabel="PageNumber">@context.Page</MudTd>
+                    <MudTd DataLabel="Content">@context.Content</MudTd>
+                    <MudTd DataLabel="Highlight">@context.Highlights.Count</MudTd>
                 </RowTemplate>
             </MudTable>
 

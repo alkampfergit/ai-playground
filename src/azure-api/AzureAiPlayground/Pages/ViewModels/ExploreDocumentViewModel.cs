@@ -6,6 +6,7 @@ using HtmlAgilityPack;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Nest;
 using TiktokenSharp;
 
 namespace AzureAiPlayground.Pages.ViewModels;
@@ -197,7 +198,8 @@ public class ExploreDocumentViewModel
 
     public string? KeywordSearch { get; set; }
 
-    public ExploreDocumentSearchViewModel SearchViewModel = new ExploreDocumentSearchViewModel();
+    public readonly ExploreDocumentSearchViewModel SearchViewModel = new ExploreDocumentSearchViewModel();
+    
     public async Task DoKeywordSearch()
     {
         if (string.IsNullOrEmpty(KeywordSearch)) return;
@@ -246,7 +248,7 @@ public class ExploreDocumentViewModel
                 { "PageNumber", 1 },
                 { "Content", 1 },
                 { "SingleDocumentId", 1 },
-                { "highlights", new BsonDocument("$meta", "searchHighlights") } }
+                { "Highlights", new BsonDocument("$meta", "searchHighlights") } }
               }
         };
 
@@ -255,18 +257,14 @@ public class ExploreDocumentViewModel
 
         var result = await resultAggregateAsync.ToListAsync();
 
-        foreach (var doc in result)
-        {
-            System.Console.WriteLine(doc.ToJson());
-        }
-
-        //SearchViewModel.SegmentsQueryResults = result
-        //    .Select(x => (
-        //        Segmenter.SegmentInfo.FromElasticDocument(x),
-        //        x.GetStringProperty("docid") ?? ""))
-        //    .Select(d => new DocumentSegment(d.Item2, d.Item1.Index, d.Item1.Content, d.Item1.TokenCount))
-        //    .Select(d => new UiSingleDocumentSegment(d))
-        //    .ToList();
+        SearchViewModel.SegmentsQueryResults = result
+            .Select(d => new ExploreDocumentSearchViewModel.DocumentContentSearchResult(
+                d["SingleDocumentId"].AsString,
+                d["PageNumber"].AsInt32,
+                d["Content"].AsString,
+                ExploreDocumentSearchViewModel.Highlight.FromBsonArray( (BsonArray) d["Highlights"])
+            ))
+            .ToList();
     }
 
     private async Task SearchInElasticsearch()
@@ -278,12 +276,13 @@ public class ExploreDocumentViewModel
             KeywordSearch);
 
         SearchViewModel.SegmentsQueryResults = result
-            .Select(x => (
-                Segmenter.SegmentInfo.FromElasticDocument(x),
-                x.GetStringProperty("docid") ?? ""))
-            .Select(d => new DocumentSegment(d.Item2, d.Item1.Index, d.Item1.Content, d.Item1.TokenCount))
-            .Select(d => new UiSingleDocumentSegment(d))
-            .ToList();
+            .Select(d => new ExploreDocumentSearchViewModel.DocumentContentSearchResult(
+                d.GetStringProperty("docid") ?? "",
+                  (int) (d.GetNumericProperty("page") ?? 0),
+                d.GetTextProperty("content") ?? "",
+                Array.Empty<ExploreDocumentSearchViewModel.Highlight>()
+                ))
+           .ToList();
     }
 
     #endregion

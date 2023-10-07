@@ -11,6 +11,7 @@ public class ExploreDocumentPage : ComponentBase
 
     public MudTable<UiSingleDocumentPage> ResultTable { get; set; } = null!;
     public MudTable<UiSingleDocumentSegment> SegmentsTable { get; set; } = null!;
+    public MudTable<ExploreDocumentSearchViewModel.DocumentContentSearchResult> SearchResultTable { get; set; } = null!;
 
     public UiSingleDocumentPage SelectedPage { get; set; }
 
