@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using Azure.AI.OpenAI;
 
@@ -100,5 +101,13 @@ public class Message
         {
             throw new System.Exception("Unknown role: " + Role);
         }
+    }
+
+    public string Dump()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Role: {Role}");
+        sb.AppendLine($"Content: {Content}");
+        return sb.ToString();
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -20,6 +21,24 @@ public class ApiPayload
     [JsonPropertyName("max_tokens")] public int MaxTokens { get; set; }
 
     [JsonPropertyName("stop")] public string? Stop { get; set; }
+
+    public string Dump()
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine($"Temperature: {Temperature}");
+        sb.AppendLine($"TopP: {TopP}");
+        sb.AppendLine($"FrequencyPenalty: {FrequencyPenalty}");
+        sb.AppendLine($"PresencePenalty: {PresencePenalty}");
+        sb.AppendLine($"MaxTokens: {MaxTokens}");
+        sb.AppendLine($"Stop: {Stop}");
+        sb.AppendLine($"Messages: {Messages.Count}");
+        foreach (var message in Messages)
+        {
+            sb.AppendLine($"  {message.Role}: {message.Content}");
+        }
+        sb.AppendLine();
+        return sb.ToString();
+    }
 }
 
 public class ApiResponse

@@ -78,10 +78,17 @@ public class ExploreDocumentSearchViewModel
               }
         };
 
+        var limitStage = new BsonDocument
+        {
+            {
+                "$limit", 10
+            }
+        };
+
         _owner.Logs.AddLog( "Atlas search", searchStage);
 
-        var pipeline = new List<BsonDocument> { searchStage, projectStage };
-        var resultAggregateAsync = await _segmentsCollection.AggregateAsync<BsonDocument>(pipeline);
+        var pipeline = new List<BsonDocument> { searchStage, projectStage, limitStage };
+        var resultAggregateAsync = await _segmentsCollection.AggregateAsync<BsonDocument>(pipeline, new AggregateOptions());
 
         var result = await resultAggregateAsync.ToListAsync();
 

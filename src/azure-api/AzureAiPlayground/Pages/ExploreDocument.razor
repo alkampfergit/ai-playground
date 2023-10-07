@@ -30,15 +30,15 @@
     <MudCard hidden="@(ViewModel.CurrentDocument == null)">
         <MudCardContent>
             <MudGrid>
-                <MudItem xs="12" md="9">
+                <MudItem xs="12" md="8">
                     <!-- Use the desired column sizes here -->
                     <MudTextField @bind-Value="@ViewModel.KeywordSearch" Label="Keyword search" />
-                    <MudTextField @bind-Value="@ViewModel.Question" Label="Question" />
+                    <MudTextField @bind-Value="@ViewModel.Question" Multiline="true" Label="Question" />
                 </MudItem>
-                <MudItem xs="12" md="3">
+                <MudItem xs="12" md="4">
                     <!-- Use the desired column sizes here -->
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordSearch">Keyword Search</MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordPlusQuestionSearch">Keyword Search</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordSearch">Keyword search</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordPlusQuestionSearch">Question</MudButton>
                 </MudItem>
             </MudGrid>
         </MudCardContent>
@@ -177,7 +177,7 @@
                          @if (context.ShowDetail)
                         {
                             <pre>
-                                <MudText>@context.Detail</MudText>
+                                @context.Detail
                             </pre>
                         }
                     </ChildRowContent>

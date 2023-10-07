@@ -201,9 +201,9 @@ public class ExploreDocumentViewModel
 
     #region Keyword search
 
-    public string? KeywordSearch { get; set; }
+    public string? KeywordSearch { get; set; } // = "\"Complete Mediation\"";
 
-    public string? Question { get; set; }
+    public string? Question { get; set; } // = "Can you please describe the technique of complete mediation?";
 
     public readonly ExploreDocumentSearchViewModel SearchViewModel;
     private readonly ChatClient _chatClient;
@@ -221,11 +221,45 @@ public class ExploreDocumentViewModel
     public async Task DoKeywordPlusQuestionSearch()
     {
         if (CurrentDocument == null) return;
-        if (string.IsNullOrEmpty(KeywordSearch) || string.IsNullOrEmpty(Question)) return;
+        if (string.IsNullOrEmpty(Question)) return;
+
+        //If user does not specify any keyword we will use the question as keyword
+        var keywordSearch = string.IsNullOrEmpty(KeywordSearch) ? Question : KeywordSearch;
 
         //Now we need to perform a double step operation.
         Logs.Clear();
-        await SearchViewModel.SearchKeyword(KeywordSearch, CurrentDocument.Document.Id);
+        await SearchViewModel.SearchKeyword(keywordSearch, CurrentDocument.Document.Id);
+
+        //if we really have some keyword we need just to go and ask the question to the chatbot using
+        //first X results as context
+        var context = SearchViewModel.SegmentsQueryResults
+            .Take(5)
+            .Select(x => x.Content)
+            .Aggregate((s1, s2) => s1 + "\"\"\"\n" + s2 + "\n\"\"\"\n");
+        var chatQuestion = @$"Answer the question based only on the following context. If the context does not 
+contains answer to the question you will answer ""I have not an answer"":
+""""""
+{context}
+""""""
+Question: {Question}";
+
+        var payload = new ApiPayload
+        {
+            Messages = new List<Message>
+            {
+                new Message { Role = "system", Content = "You are a chatbot that will answer questions based on a context included in the prompt. You will never user your memory to answer the question." },
+                new Message { Role = "user", Content = chatQuestion }
+            },
+            MaxTokens = 100,
+            Temperature = 0.8,
+            FrequencyPenalty = 1,
+            PresencePenalty = 2,
+            TopP = 0.9,
+            Stop = null
+        };
+        Logs.AddLog("GPT53 call - question/answer", payload.Dump());
+        var result = await _chatClient.SendMessageAsync("gpt35", payload);
+        Logs.AddLog("GPT53 result - question/answer", result.Dump());
     }
 
     #endregion
