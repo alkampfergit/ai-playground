@@ -1,5 +1,5 @@
 using MongoDB.Bson;
-using Nest;
+using MongoDB.Driver;
 
 namespace AzureAiPlayground.Pages.ViewModels;
 
@@ -8,6 +8,9 @@ namespace AzureAiPlayground.Pages.ViewModels;
 /// </summary>
 public class ExploreDocumentSearchViewModel
 {
+    private readonly ExploreDocumentViewModel _owner;
+    private readonly IMongoCollection<DocumentSegment> _segmentsCollection;
+
     /// <summary>
     /// When I search into elasticsearch these are the results of the query, it is the
     /// final result of the query that contains all segments that are returned from the
@@ -16,17 +19,101 @@ public class ExploreDocumentSearchViewModel
     public IReadOnlyCollection<DocumentContentSearchResult> SegmentsQueryResults { get; set; } =
         Array.Empty<DocumentContentSearchResult>();
 
-    /// <summary>
-    /// A string builder that contains log of whatever is executed for the search, each
-    /// step can add log to the list of logs.
-    /// </summary>
-    public List<string> Logs { get; set; } = new ();
-    
+    public ExploreDocumentSearchViewModel(
+        ExploreDocumentViewModel owner,
+        IMongoCollection<DocumentSegment> segmentsCollection)
+    {
+        _owner=owner;
+        _segmentsCollection=segmentsCollection;
+    }
+
     public void Clear()
     {
-        Logs.Clear();
         SegmentsQueryResults = Array.Empty<DocumentContentSearchResult>();
     }
+
+    internal Task SearchKeyword(string keywordSearch, string? documentId)
+    {
+        return SearchInAtlas(keywordSearch, documentId);
+    }
+
+    private async Task SearchInAtlas(string keywordSearch, string? documentId)
+    {
+        var searchStage = new BsonDocument
+        {
+            {
+                "$search", new BsonDocument
+                {
+                    { "index", "segments" },
+                    {
+                        "queryString", new BsonDocument
+                        {
+                            { "query", keywordSearch },
+                            { "defaultPath", "Content" }
+                        }
+                    },
+                    {
+                        "highlight", new BsonDocument
+                        {
+                            { "path", "Content" }
+                        }
+                    },
+                    {
+                        "scoreDetails" , true
+                    }
+                }
+            }
+        };
+
+        var projectStage = new BsonDocument
+        {
+            {
+              "$project", new BsonDocument {
+                { "description", 1 },
+                { "_id", 0 },
+                { "PageNumber", 1 },
+                { "Content", 1 },
+                { "SingleDocumentId", 1 },
+                { "Highlights", new BsonDocument("$meta", "searchHighlights") } }
+              }
+        };
+
+        _owner.Logs.AddLog( "Atlas search", searchStage);
+
+        var pipeline = new List<BsonDocument> { searchStage, projectStage };
+        var resultAggregateAsync = await _segmentsCollection.AggregateAsync<BsonDocument>(pipeline);
+
+        var result = await resultAggregateAsync.ToListAsync();
+
+        _owner.Logs.AddLog($"Atlas search returned {result.Count} elements", result);
+
+        SegmentsQueryResults = result
+            .Select(d => new ExploreDocumentSearchViewModel.DocumentContentSearchResult(
+                d["SingleDocumentId"].AsString,
+                d["PageNumber"].AsInt32,
+                d["Content"].AsString,
+                ExploreDocumentSearchViewModel.Highlight.FromBsonArray((BsonArray)d["Highlights"])
+            ))
+            .ToList();
+    }
+
+    //private async Task SearchInElasticsearch()
+    //{
+    //    //simple elastic search query
+    //    var result = await _esService.SearchAsync(
+    //        _segmentsIndexName,
+    //        new[] { "content" },
+    //        KeywordSearch);
+
+    //    SearchViewModel.SegmentsQueryResults = result
+    //        .Select(d => new ExploreDocumentSearchViewModel.DocumentContentSearchResult(
+    //            d.GetStringProperty("docid") ?? "",
+    //              (int)(d.GetNumericProperty("page") ?? 0),
+    //            d.GetTextProperty("content") ?? "",
+    //            Array.Empty<ExploreDocumentSearchViewModel.Highlight>()
+    //            ))
+    //       .ToList();
+    //}
 
     public record Highlight(string Path, string Text)
     {
@@ -37,7 +124,7 @@ public class ExploreDocumentSearchViewModel
             Text = be["texts"]
                 .AsBsonArray
                 .Select(e => e["type"].AsString == "hit" ?
-                    $"<b>{e["value"].AsString}</b>" :
+                    $"<span style=\"color: red; font-size: 18px; font-weight: bold;\">{e["value"].AsString}</span>" :
                     e["value"].AsString)
                 .Aggregate((s1, s2) => s1 + "" + s2);
         }
@@ -57,8 +144,11 @@ public class ExploreDocumentSearchViewModel
     }
 
     public record DocumentContentSearchResult(
-        string Id, 
-        int Page, 
+        string Id,
+        int Page,
         string Content,
-        IReadOnlyCollection<Highlight> Highlights);
+        IReadOnlyCollection<Highlight> Highlights)
+    {
+        public Boolean ShowDetail { get; set; } = false;
+    }
 }

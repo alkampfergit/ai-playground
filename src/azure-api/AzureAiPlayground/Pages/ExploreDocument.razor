@@ -15,7 +15,7 @@
             <MudGrid>
                 <MudItem xs="12" md="6">
                     <!-- Use the desired column sizes here -->
-                    <MudTextField @bind-Value="@FilePathToImport" Label="Path"/>
+                    <MudTextField @bind-Value="@FilePathToImport" Label="Path" />
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <!-- Use the desired column sizes here -->
@@ -28,112 +28,163 @@
     </MudCard>
 
     <MudCard hidden="@(ViewModel.CurrentDocument == null)">
-        <MudGrid>
-            <MudItem xs="12" md="9">
-                <!-- Use the desired column sizes here -->
-                <MudTextField @bind-Value="@ViewModel.KeywordSearch" Label="Keyword search"/>
-            </MudItem>
-            <MudItem xs="12" md="3">
-                <!-- Use the desired column sizes here -->
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordSearch">Keyword Search</MudButton>
-            </MudItem>
-        </MudGrid>
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" md="9">
+                    <!-- Use the desired column sizes here -->
+                    <MudTextField @bind-Value="@ViewModel.KeywordSearch" Label="Keyword search" />
+                    <MudTextField @bind-Value="@ViewModel.Question" Label="Question" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <!-- Use the desired column sizes here -->
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordSearch">Keyword Search</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordPlusQuestionSearch">Keyword Search</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
     </MudCard>
 
-    <MudTabs Elevation="2" hidden="@(ViewModel.CurrentDocument == null)" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
-        <MudTabPanel Text="Raw Document">
-            <MudText>@ViewModel.CurrentDocument?.Document?.Id</MudText>
-            <MudTable T="UiSingleDocumentPage"
-                      Items="@(ViewModel.CurrentDocument?.Pages ?? Array.Empty<UiSingleDocumentPage>())"
-                      @ref="ResultTable"
-                      RowClassFunc="@SelectedRowClassFunc"
-                      OnRowClick="RowClickEvent">
-                <HeaderContent>
-                    <MudTh></MudTh>
-                    <MudTh>Page Number</MudTh>
-                    <MudTh>Token Count</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>
-                        <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => ShowBtnPress(context))">@((context.ShowDetails == true) ? "Hide" : "Show") Details</MudButton>
-                    </MudTd>
-                    <MudTd DataLabel="PageNumber">@context.Page.PageNumber</MudTd>
-                    <MudTd DataLabel="TokenCount">@context.Page.TokenCount</MudTd>
-                </RowTemplate>
-                <ChildRowContent>
-                    @if (context.ShowDetails)
-                    {
-                        <MudTr>
-                            <td colspan="4">
-                                <MudCard Elevation="0">
-                                    <MudCardHeader>
-                                        <CardHeaderContent>
-                                            <MudText Typo="Typo.body1">Page <strong>@context.Page.PageNumber</strong></MudText>
-                                        </CardHeaderContent>
-                                    </MudCardHeader>
-                                    <MudCardContent Class="pa-0">
-                                        <h6>Content</h6>
+    <MudCard hidden="@(ViewModel.CurrentDocument == null)">
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+            <MudTabPanel Text="Raw Document">
+                <MudText>@ViewModel.CurrentDocument?.Document?.Id</MudText>
+                <MudTable T="UiSingleDocumentPage"
+                          Items="@(ViewModel.CurrentDocument?.Pages ?? Array.Empty<UiSingleDocumentPage>())"
+                          @ref="ResultTable"
+                          RowClassFunc="@SelectedRowClassFunc"
+                          OnRowClick="RowClickEvent">
+                    <HeaderContent>
+                        <MudTh></MudTh>
+                        <MudTh>Page Number</MudTh>
+                        <MudTh>Token Count</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => ShowBtnPress(context))">@((context.ShowDetails == true) ? "Hide" : "Show") Details</MudButton>
+                        </MudTd>
+                        <MudTd DataLabel="PageNumber">@context.Page.PageNumber</MudTd>
+                        <MudTd DataLabel="TokenCount">@context.Page.TokenCount</MudTd>
+                    </RowTemplate>
+                    <ChildRowContent>
+                        @if (context.ShowDetails)
+                        {
+                            <MudTr>
+                                <td colspan="4">
+                                    <MudCard Elevation="0">
+                                        <MudCardHeader>
+                                            <CardHeaderContent>
+                                                <MudText Typo="Typo.body1">Page <strong>@context.Page.PageNumber</strong></MudText>
+                                            </CardHeaderContent>
+                                        </MudCardHeader>
+                                        <MudCardContent Class="pa-0">
+                                            <h6>Content</h6>
 
-                                        <MudElement HtmlTag="pre" Class="my-class">
-                                            @context.Page.Content
-                                        </MudElement>
-                                    </MudCardContent>
-                                </MudCard>
-                            </td>
-                        </MudTr>
-                    }
-                </ChildRowContent>
-            </MudTable>
+                                            <MudElement HtmlTag="pre" Class="my-class">
+                                                @context.Page.Content
+                                            </MudElement>
+                                        </MudCardContent>
+                                    </MudCard>
+                                </td>
+                            </MudTr>
+                        }
+                    </ChildRowContent>
+                </MudTable>
+            </MudTabPanel>
+            <MudTabPanel Text="Segments">
+                <MudText>@ViewModel.CurrentDocument?.Document?.Id</MudText>
+                <MudTable T="UiSingleDocumentSegment"
+                          Items="@(ViewModel.CurrentDocument?.Segments ?? Array.Empty<UiSingleDocumentSegment>())"
+                          @ref="SegmentsTable">
+                    <HeaderContent>
+                        <MudTh>Page Number</MudTh>
+                        <MudTh>Content</MudTh>
+                        <MudTh>Token Count</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
 
-            @* <MudExpansionPanels Style="flex: 1;"> *@
-            @*     <MudExpansionPanel Text="Show Details"> *@
-            @*         @if (SelectedPage != null) *@
-            @*         { *@
-            @*             <div>Content: @SelectedPage.Page.Content   </div> *@
-            @*         } *@
-            @*     </MudExpansionPanel> *@
-            @* </MudExpansionPanels> *@
-        </MudTabPanel>
-        <MudTabPanel Text="Segments">
-            <MudText>@ViewModel.CurrentDocument?.Document?.Id</MudText>
-            <MudTable T="UiSingleDocumentSegment"
-                      Items="@(ViewModel.CurrentDocument?.Segments ?? Array.Empty<UiSingleDocumentSegment>())"
-                      @ref="SegmentsTable">
-                <HeaderContent>
-                    <MudTh>Page Number</MudTh>
-                    <MudTh>Content</MudTh>
-                    <MudTh>Token Count</MudTh>
-                </HeaderContent>
-                <RowTemplate>
+                        <MudTd DataLabel="PageNumber">@context.Segment.PageNumber</MudTd>
+                        <MudTd DataLabel="TokenCount">@context.Segment.Content</MudTd>
+                        <MudTd DataLabel="TokenCount">@context.Segment.TokenCount</MudTd>
+                    </RowTemplate>
+                </MudTable>
 
-                    <MudTd DataLabel="PageNumber">@context.Segment.PageNumber</MudTd>
-                    <MudTd DataLabel="TokenCount">@context.Segment.Content</MudTd>
-                    <MudTd DataLabel="TokenCount">@context.Segment.TokenCount</MudTd>
-                </RowTemplate>
-            </MudTable>
+            </MudTabPanel>
+            <MudTabPanel Text="Keyword Result">
+                <MudText>Search Result</MudText>
+                <MudTable T="ExploreDocumentSearchViewModel.DocumentContentSearchResult"
+                          Items="@(ViewModel.SearchViewModel.SegmentsQueryResults)"
+                          @ref="SearchResultTable"
+                          RowClassFunc="@SearchResultSelectedRowClassFunc"
+                          OnRowClick="SearchResultRowClickEvent">
+                    <HeaderContent>
+                        <MudTh>DocId</MudTh>
+                        <MudTh>Page Number</MudTh>
+                        <MudTh>Content</MudTh>
+                        <MudTh>Highlight Count</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="DocId">@context.Id</MudTd>
+                        <MudTd DataLabel="PageNumber">@context.Page</MudTd>
+                        <MudTd DataLabel="Content">@context.Content</MudTd>
+                        <MudTd DataLabel="Highlight">@context.Highlights.Count</MudTd>
+                    </RowTemplate>
+                    <ChildRowContent>
+                        @if (context.ShowDetail)
+                        {
+                            <MudTr>
+                                <td colspan="4">
+                                    <MudCard Elevation="0">
+                                        <MudCardHeader>
+                                            <CardHeaderContent>
+                                                <MudText Typo="Typo.h4">Hihglights</MudText>
+                                            </CardHeaderContent>
+                                        </MudCardHeader>
+                                        <MudCardContent Class="pa-0">
+                                            <MudTable Items="context.Highlights">
+                                                <HeaderContent>
+                                                    <MudTh>Path</MudTh>
+                                                    <MudTh>Text</MudTh>
+                                                </HeaderContent>
+                                                <RowTemplate Context="highlight">
+                                                    <MudTd DataLabel="DocId">@highlight.Path</MudTd>
+                                                    <MudTd DataLabel="PageNumber">@((Microsoft.AspNetCore.Components.MarkupString)highlight.Text)</MudTd>
+                                                </RowTemplate>
+                                            </MudTable>
+                                        </MudCardContent>
+                                    </MudCard>
+                                </td>
+                            </MudTr>
+                        }
+                    </ChildRowContent>
+                </MudTable>
 
-        </MudTabPanel>
-        <MudTabPanel Text="Keyword Result">
-            <MudText>Search Result</MudText>
-            <MudTable T="ExploreDocumentSearchViewModel.DocumentContentSearchResult"
-                      Items="@(ViewModel.SearchViewModel.SegmentsQueryResults)"
-                      @ref="SearchResultTable">
-                <HeaderContent>
-                    <MudTh>DocId</MudTh>
-                    <MudTh>Page Number</MudTh>
-                    <MudTh>Content</MudTh>
-                    <MudTh>Highlight Count</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="DocId">@context.Id</MudTd>
-                    <MudTd DataLabel="PageNumber">@context.Page</MudTd>
-                    <MudTd DataLabel="Content">@context.Content</MudTd>
-                    <MudTd DataLabel="Highlight">@context.Highlights.Count</MudTd>
-                </RowTemplate>
-            </MudTable>
+            </MudTabPanel>
+            <MudTabPanel Text="Debug">
+                <MudText>Debug operations</MudText>
+               <MudTable T="DebugViewModelLog"
+                          Items="@(ViewModel.Logs.Logs)"
+                          RowClassFunc="@LogSelectedRowClassFunc"
+                          OnRowClick="LogRowClickEvent">
+                    <HeaderContent>
+                        <MudTh>Timestamp</MudTh>
+                        <MudTh>Log</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Timestamp">@context.TimeStamp</MudTd>
+                        <MudTd DataLabel="Log">@context.Header</MudTd>
+                    </RowTemplate>
+                    <ChildRowContent>
+                         @if (context.ShowDetail)
+                        {
+                            <pre>
+                                <MudText>@context.Detail</MudText>
+                            </pre>
+                        }
+                    </ChildRowContent>
+                </MudTable> 
+            </MudTabPanel>
 
-        </MudTabPanel>
-
-    </MudTabs>
+        </MudTabs>
+    </MudCard>
 
 </MudContainer>

@@ -38,6 +38,8 @@ public class ExploreDocumentViewModel
         _esService = new ElasticSearchService(new Uri(documentsConfig.CurrentValue.ElasticUrl));
         _segmentsIndexName = "explore-document-segments";
 
+        SearchViewModel = new ExploreDocumentSearchViewModel(this, _segmentCollection);
+
         // check we can access the database reading collection 
         var count = _docCollection.CountDocuments(new BsonDocument());
 
@@ -49,9 +51,12 @@ public class ExploreDocumentViewModel
 
         TikToken.PBEFileDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Files");
         _tikTokTokenizer = TikToken.GetEncoding("cl100k_base");
+        _chatClient=chatClient;
     }
 
     public UiSingleDocument? CurrentDocument { get; set; }
+
+    public DebugViewModel Logs { get; set; } = new DebugViewModel();
 
     public async Task Init()
     {
@@ -198,91 +203,29 @@ public class ExploreDocumentViewModel
 
     public string? KeywordSearch { get; set; }
 
-    public readonly ExploreDocumentSearchViewModel SearchViewModel = new ExploreDocumentSearchViewModel();
-    
+    public string? Question { get; set; }
+
+    public readonly ExploreDocumentSearchViewModel SearchViewModel;
+    private readonly ChatClient _chatClient;
+
     public async Task DoKeywordSearch()
     {
+        if (CurrentDocument == null) return;
         if (string.IsNullOrEmpty(KeywordSearch)) return;
 
         //ok we need to search
-        SearchViewModel.Clear();
-
-        await SearchInAtlas();
-        //await SearchInElasticsearch();
+        Logs.Clear();
+        await SearchViewModel.SearchKeyword(KeywordSearch, CurrentDocument.Document.Id);
     }
 
-    private async Task SearchInAtlas()
+    public async Task DoKeywordPlusQuestionSearch()
     {
-        var searchStage = new BsonDocument
-        {
-            {
-                "$search", new BsonDocument
-                {
-                    { "index", "segments" },
-                    {
-                        "queryString", new BsonDocument
-                        {
-                            { "query", KeywordSearch },
-                            { "defaultPath", "Content" }
-                        }
-                    },
-                    {
-                        "highlight", new BsonDocument
-                        {
-                            { "path", "Content" }
-                        }
-                    },
-                    {
-                        "scoreDetails" , true
-                    }
-                }
-            }
-        };
+        if (CurrentDocument == null) return;
+        if (string.IsNullOrEmpty(KeywordSearch) || string.IsNullOrEmpty(Question)) return;
 
-        var projectStage = new BsonDocument
-        {
-            {
-              "$project", new BsonDocument {
-                { "description", 1 },
-                { "_id", 0 },
-                { "PageNumber", 1 },
-                { "Content", 1 },
-                { "SingleDocumentId", 1 },
-                { "Highlights", new BsonDocument("$meta", "searchHighlights") } }
-              }
-        };
-
-        var pipeline = new List<BsonDocument> { searchStage, projectStage };
-        var resultAggregateAsync = await _segmentCollection.AggregateAsync<BsonDocument>(pipeline);
-
-        var result = await resultAggregateAsync.ToListAsync();
-
-        SearchViewModel.SegmentsQueryResults = result
-            .Select(d => new ExploreDocumentSearchViewModel.DocumentContentSearchResult(
-                d["SingleDocumentId"].AsString,
-                d["PageNumber"].AsInt32,
-                d["Content"].AsString,
-                ExploreDocumentSearchViewModel.Highlight.FromBsonArray( (BsonArray) d["Highlights"])
-            ))
-            .ToList();
-    }
-
-    private async Task SearchInElasticsearch()
-    {
-        //simple elastic search query
-        var result = await _esService.SearchAsync(
-            _segmentsIndexName,
-            new[] { "content" },
-            KeywordSearch);
-
-        SearchViewModel.SegmentsQueryResults = result
-            .Select(d => new ExploreDocumentSearchViewModel.DocumentContentSearchResult(
-                d.GetStringProperty("docid") ?? "",
-                  (int) (d.GetNumericProperty("page") ?? 0),
-                d.GetTextProperty("content") ?? "",
-                Array.Empty<ExploreDocumentSearchViewModel.Highlight>()
-                ))
-           .ToList();
+        //Now we need to perform a double step operation.
+        Logs.Clear();
+        await SearchViewModel.SearchKeyword(KeywordSearch, CurrentDocument.Document.Id);
     }
 
     #endregion
