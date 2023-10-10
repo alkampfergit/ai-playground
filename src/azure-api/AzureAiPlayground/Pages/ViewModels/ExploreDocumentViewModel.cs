@@ -192,7 +192,7 @@ public class ExploreDocumentViewModel
         await _pagesCollection.DeleteManyAsync(x => x.SingleDocumentId == doc.Id);
         await _pagesCollection.InsertManyAsync(pages);
 
-        if (segments != null)
+        if (segments != null && segments.Any())
         {
             await _segmentCollection.DeleteManyAsync(x => x.SingleDocumentId == doc.Id);
             await _segmentCollection.InsertManyAsync(segments);

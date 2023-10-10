@@ -68,7 +68,7 @@ public class Segmenter
             var tokens = segment
                 .Split(' ','\n')
                 .Select(s => s.Trim(' ', '\r', '\n'))
-                .Where(t => t.Length < 30);
+                .Where(t => t.Length < 30 && t.Length > 0);
             
             foreach (var token in tokens)
             {
