@@ -1,5 +1,4 @@
 using System.Text;
-using Nest;
 using TiktokenSharp;
 
 namespace AzureAiLibrary.Documents;
@@ -31,8 +30,8 @@ public class Segmenter
         public static SegmentInfo FromElasticDocument(ElasticDocument doc)
         {
             var content = doc.GetTextProperty("content") ?? "";
-            var index = (int) (doc.GetNumericProperty("page") ?? 0);
-            var tokenCount = (int) (doc.GetNumericProperty("tokencount") ?? 0);
+            var index = (int)(doc.GetNumericProperty("page") ?? 0);
+            var tokenCount = (int)(doc.GetNumericProperty("tokencount") ?? 0);
             return new SegmentInfo(content, index, tokenCount);
         }
     }
@@ -41,10 +40,10 @@ public class Segmenter
     {
         _tokenLength = tokenLength;
         _tokenOverlap = tokenOverlap;
-        
+
         _tikTokTokenizer = TikToken.GetEncoding("cl100k_base");
     }
-    
+
     /// <summary>
     /// Extract a series of segments from an array of strings, where each string
     /// is a piece of text. It will use _segmentLength and _segmentOverlap to create
@@ -66,10 +65,10 @@ public class Segmenter
             //split the word using spaces and carriage return
             //also we have bad words that are too long (symbols sequences)
             var tokens = segment
-                .Split(' ','\n')
+                .Split(' ', '\n')
                 .Select(s => s.Trim(' ', '\r', '\n'))
-                .Where(t => t.Length < 30 && t.Length > 0);
-            
+                .Where(FilterSegmentWord);
+
             foreach (var token in tokens)
             {
                 var tokenCount = _tikTokTokenizer.Encode(token).Count;
@@ -78,7 +77,7 @@ public class Segmenter
 
             index++;
         }
-        
+
         //now we can iterate in all the words and create segments based
         //on length of the token precalculated.
         var result = new List<SegmentInfo>();
@@ -92,7 +91,7 @@ public class Segmenter
             if (currentTokenCount + word.TokenCount > _tokenLength)
             {
                 //we need to create a new segment
-                result.Add(new SegmentInfo(currentSegment.ToString(), word.index, currentTokenCount));
+                result.Add(new SegmentInfo(ExtractSegmentValue(currentSegment), word.index, currentTokenCount));
                 currentSegment.Clear();
                 currentTokenCount = 0;
 
@@ -113,9 +112,9 @@ public class Segmenter
                     var tokenLength = words[index].TokenCount;
                     if (tokenLength > _tokenOverlap)
                     {
-                       //token too long, skip
-                       index++;
-                       tokenToGoBack = 0;
+                        //token too long, skip
+                        index++;
+                        tokenToGoBack = 0;
                     }
                     else
                     {
@@ -125,18 +124,44 @@ public class Segmenter
 
                 continue;
             }
-            
+
             currentSegment.Append(' ');
             currentTokenCount += word.TokenCount;
             index++;
         }
 
-        if (currentTokenCount > _tokenOverlap)
+        if (currentTokenCount > _tokenOverlap || result.Count == 0)
         {
             //we need to create a new segment
-            result.Add(new SegmentInfo(currentSegment.ToString(), words[^1].index, currentTokenCount));
+            result.Add(new SegmentInfo(ExtractSegmentValue(currentSegment), words[^1].index, currentTokenCount));
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Remove all ending separator avoiding segments that ends with a space.
+    /// </summary>
+    /// <param name="currentSegment"></param>
+    /// <returns></returns>
+    private static string ExtractSegmentValue(StringBuilder currentSegment)
+    {
+        while (currentSegment.Length > 0 && char.IsSeparator(currentSegment[currentSegment.Length -1])) 
+        {
+            currentSegment.Length--;
+        }
+        return currentSegment.ToString();
+    }
+
+    private bool FilterSegmentWord(string word)
+    {
+        var symbolsCount = word.Count(char.IsSymbol);
+        //euristics, if we have more than 50% of the symbol in the text we need to drop.
+        if (symbolsCount > word.Length / 2)
+        {
+            return false;
+        }
+
+        return true;
     }
 }
