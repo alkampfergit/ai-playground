@@ -1,11 +1,11 @@
 using AzureAiLibrary.Documents;
-using MongoDB.Driver.Search;
+using AzureAiLibrary.Documents.DocumentChat;
 using Nest;
 using static AzureAiLibrary.Documents.ElasticSearchService;
 
 namespace AzureAiLibrary.Tests.Documents;
 
-public class ElasticSearchServiceTests : IDisposable
+public class ElasticSearchServiceTests : IDisposable, IAsyncLifetime
 {
     private readonly ElasticSearchService _sut;
     private readonly ElasticClient _elasticClient;
@@ -16,16 +16,29 @@ public class ElasticSearchServiceTests : IDisposable
     {
         Uri uri = new Uri("http://localhost:9200");
         _sut = new ElasticSearchService(uri);
+
         _elasticClient = new ElasticClient(uri);
 
         _indexName = "test_" + Guid.NewGuid().ToString().Replace("-", "");
         _random = new Random((int)DateTime.Now.Ticks);
     }
 
+    public Task InitializeAsync()
+    {
+        return _sut.InitIndexAsync(_indexName);
+    }
+
+    public Task DisposeAsync()
+    {
+        return Task.CompletedTask;
+    }
+
     public void Dispose()
     {
         _elasticClient.Indices.Delete(_indexName + "*");
     }
+
+    #region Standard Tests
 
     [Fact]
     public async Task Verify_a_mapping_exists()
@@ -54,7 +67,7 @@ public class ElasticSearchServiceTests : IDisposable
 
         Assert.True(mappings.IsValid);
     }
-    
+
     [Fact]
     public async Task Can_delete_by_query()
     {
@@ -64,14 +77,14 @@ public class ElasticSearchServiceTests : IDisposable
         doc1.AddStringProperty("customer", "foo");
         var doc2 = new ElasticDocument(Guid.NewGuid().ToString());
         doc2.AddStringProperty("customer", "baz");
-        var insert = await _sut.IndexAsync(_indexName, new [] {doc1, doc2}) ;
+        var insert = await _sut.IndexAsync(_indexName, new[] { doc1, doc2 });
         await _sut.Refresh(_indexName);
         ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, doc1.Id);
         Assert.NotNull(reloaded);
 
         await _sut.DeleteByStringPropertyAsync(_indexName, "customer", "foo");
         await _sut.Refresh(_indexName);
-        
+
         reloaded = await _sut.GetByIdAsync(_indexName, doc1.Id);
         Assert.Null(reloaded);
         reloaded = await _sut.GetByIdAsync(_indexName, doc2.Id);
@@ -144,7 +157,7 @@ public class ElasticSearchServiceTests : IDisposable
 
         Assert.Equal(data.Title, reloaded.Title);
         Assert.Equal(23, Convert.ToDouble(reloaded["n_num"]));
-        Assert.Equal(23,reloaded.GetNumericProperty("num"));
+        Assert.Equal(23, reloaded.GetNumericProperty("num"));
     }
 
     [Fact]
@@ -640,4 +653,37 @@ public class ElasticSearchServiceTests : IDisposable
 
         return retValue;
     }
+    #endregion
+
+    #region Specific subclasses Tests
+
+    /// <summary>
+    /// Properties can be stored as array of strings, there is no problem because elastic
+    /// does not distinguish between single value and array of values.
+    /// </summary>
+    [Fact]
+    public async Task Index_segmented_document()
+    {
+        await _sut.InitIndexAsync(_indexName);
+
+        ElasticDocumentSegment data = new("foo12", "This is a content", 3);
+
+        var insert = await _sut.IndexAsync(_indexName, new ElasticDocumentSegment[] { data });
+
+        Assert.True(insert, "Bulk insert did not work");
+
+        ///Get the new element.
+        ElasticDocumentSegment? reloaded = await _sut.GetByIdAsync<ElasticDocumentSegment>(_indexName, data.Id);
+
+        Assert.NotNull(reloaded);
+
+        //Assert equality
+        Assert.Equal(data.Id, reloaded.Id);
+
+        Assert.Equal(data.Title, reloaded.Title);
+        Assert.Equal(data.Content, reloaded.Content);
+        Assert.Equal(data.PageId, reloaded.PageId);
+    }
+
+    #endregion
 }

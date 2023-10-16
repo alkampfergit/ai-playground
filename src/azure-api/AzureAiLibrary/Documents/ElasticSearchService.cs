@@ -1,4 +1,5 @@
-﻿using Nest;
+﻿using AzureAiLibrary.Documents.DocumentChat;
+using Nest;
 using Serilog;
 using System.Text;
 
@@ -8,7 +9,7 @@ public class ElasticSearchService
 {
     private readonly ElasticClient _elasticClient;
     private readonly Uri _uri;
-    private ILogger Logger = Log.ForContext<ElasticSearchService>();
+    private readonly ILogger Logger = Log.ForContext<ElasticSearchService>();
 
     public ElasticSearchService(Uri uri)
     {
@@ -124,6 +125,19 @@ public class ElasticSearchService
         return response.Source;
     }
 
+    public async Task<T?> GetByIdAsync<T>(string indexName, string id) where T : ElasticDocument
+    {
+        var request = new GetRequest(indexName, new Id(id));
+        var response = await _elasticClient.GetAsync<T>(request);
+        if (!response.IsValid)
+        {
+            Logger.Error($"Unable to get element with id {id} error {response.DebugInformation}");
+            return null;
+        }
+        response.Source.Id = id;
+        return response.Source;
+    }
+
     public const string StringPropertiesAnalyzer = "string_props";
     public const string AnalyzerNgramStandard = "edge_ngram_standard_analyzer";
     public const string AnalyzerTrigramStandard = "trigram_standard";
@@ -140,13 +154,13 @@ public class ElasticSearchService
     /// </summary>
     private static AnalysisDescriptor CreateIndexSettingsAnalysisDescriptor(AnalysisDescriptor descriptor)
     {
-        PathHierarchyTokenizer pathtokenizer = new PathHierarchyTokenizer()
+        PathHierarchyTokenizer pathtokenizer = new()
         {
             Delimiter = '\\',
         };
 
-        KeywordTokenizer keywordTokenizer = new KeywordTokenizer();
-        LowercaseTokenFilter lowerCaseTokenFilter = new LowercaseTokenFilter();
+        KeywordTokenizer keywordTokenizer = new();
+        LowercaseTokenFilter lowerCaseTokenFilter = new();
 
         descriptor.Tokenizers(t => t
             .PathHierarchy("path_tokenizer", _ => pathtokenizer)
@@ -171,13 +185,13 @@ public class ElasticSearchService
             )
             .Length(RemoveZeroCharFilter, td => td.Min(1).Max(100))
         ).Analyzers(an => an
-            .Custom("path", d => new CustomAnalyzer() { Tokenizer = "path_tokenizer" })
+            .Custom("path", _ => new CustomAnalyzer() { Tokenizer = "path_tokenizer" })
             .Custom(NotAnalyzedLowercase, _ => new CustomAnalyzer()
             {
                 Tokenizer = "keyword_tokenizer",
                 Filter = new[] { "lowercase_filter", "asciifolding" },
             })
-            .Custom(MainSearchAnalyzer, d => new CustomAnalyzer() // if you change this, change accordingly the AnalyzerNgramStandard
+            .Custom(MainSearchAnalyzer, _ => new CustomAnalyzer() // if you change this, change accordingly the AnalyzerNgramStandard
             {
                 Tokenizer = "standard",
                 Filter = new[]
@@ -186,7 +200,7 @@ public class ElasticSearchService
                             "asciifolding"
                 }
             })
-            .Custom(StringPropertiesAnalyzer, d => new CustomAnalyzer()
+            .Custom(StringPropertiesAnalyzer, _ => new CustomAnalyzer()
             {
                 Tokenizer = "standard",
                 Filter = new[]
@@ -213,7 +227,7 @@ public class ElasticSearchService
                             "lowercase_filter"
                 }
             })
-            .Custom(AnalyzerPropertiesIndexTime, d => new CustomAnalyzer()
+            .Custom(AnalyzerPropertiesIndexTime, _ => new CustomAnalyzer()
             {
                 Tokenizer = "standard",
                 Filter = new[]
@@ -221,7 +235,7 @@ public class ElasticSearchService
                             "lowercase"
                 }
             })
-            .Custom(NonAsciiAndSpaceSplittedLowerCaseAnalyzerName, d => new CustomAnalyzer()
+            .Custom(NonAsciiAndSpaceSplittedLowerCaseAnalyzerName, _ => new CustomAnalyzer()
             {
                 Tokenizer = NonAsciiAndSpaceSplittedLowerCaseTokenizer,
                 Filter = new[]
@@ -383,7 +397,6 @@ public class ElasticSearchService
     /// <param name="indexName"></param>
     /// <param name="fields"></param>
     /// <param name="query"></param>
-    /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
     public async Task<IReadOnlyCollection<ElasticDocument>> SearchAsync(string indexName, string[] fields, string query)
     {
@@ -436,12 +449,12 @@ public class ElasticSearchService
         return PostQuery(searchResponse);
     }
 
-    private IReadOnlyCollection<ElasticDocument> PostQuery(ISearchResponse<ElasticDocument> searchResult)
+    private IReadOnlyCollection<T> PostQuery<T>(ISearchResponse<T> searchResult) where T : ElasticDocument
     {
         if (!searchResult.IsValid)
         {
             Logger.Error("Error searching inside elasticsearch: {error}", searchResult.ServerError?.Error);
-            return Array.Empty<ElasticDocument>();
+            return Array.Empty<T>();
         }
 
         for (int i = 0; i < searchResult.Documents.Count; i++)
@@ -510,17 +523,12 @@ public class ElasticSearchService
                        )
                 );
         }
-
-
     }
 
     /// <summary>
     /// Performs a keyword xact match search on the specified fields.
     /// </summary>
-    /// <param name="indexName"></param>
-    /// <param name="fields"></param>
-    /// <param name="query"></param>
-    /// <returns></returns>
+    /// <param name="queryDefinition"></param>
     /// <exception cref="NotImplementedException"></exception>
     public async Task<IReadOnlyCollection<ElasticDocument>> SearchAsync(QueryDefinition queryDefinition)
     {
@@ -530,6 +538,19 @@ public class ElasticSearchService
                 .Size(queryDefinition.NumOfRecords)
                 .Query(q => CreateQuery(queryDefinition, q)
             ));
+
+        return PostQuery(searchResult);
+    }
+
+    /// <summary>
+    /// Performs a keyword xact match search on the specified fields.
+    /// </summary>
+    /// <param name="segmentSearch"></param>
+    /// <exception cref="NotImplementedException"></exception>
+    public async Task<IReadOnlyCollection<ElasticDocumentSegment>> SearchSegmentsAsync(SegmentsSearch segmentSearch)
+    {
+        //perform an ElasticSearch query with query string frield with the nest driver
+        var searchResult = await _elasticClient.SearchAsync<ElasticDocumentSegment>(s => segmentSearch.ConfigureQuery(s));
 
         return PostQuery(searchResult);
     }
@@ -625,7 +646,7 @@ public class ElasticSearchService
                 .Index(indexName)
                 .Query(q => q.Term($"s_{propertyName}.kw", propertyValue)));
     }
-    
+
     public Task Refresh(string indexName)
     {
         return _elasticClient.Indices.RefreshAsync(indexName);
