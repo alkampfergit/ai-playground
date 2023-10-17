@@ -1,0 +1,6 @@
+﻿@$"Answer the question based only on the following context. If the context does not 
+contains answer to the question you will answer ""I have not an answer"":
+""""""
+{context}
+""""""
+Question: {Question}"

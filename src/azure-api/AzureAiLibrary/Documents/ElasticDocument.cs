@@ -53,7 +53,14 @@ public class ElasticDocument : Dictionary<string, object>
 
     public string? GetStringProperty(string key)
     {
-        return TryGetValue($"s_{key}", out var title) ? title as string : string.Empty;
+        if (TryGetValue($"s_{key}", out var propertyValue))
+        {
+            //now we can have a string or a string array
+            if (propertyValue is string s) return s;
+            if (propertyValue is IEnumerable<string> sa) return sa.First();
+            if (propertyValue is IEnumerable<object> so) return so.OfType<string>().FirstOrDefault();
+        }
+        return string.Empty;
     }
 
     /// <summary>

@@ -7,6 +7,10 @@ using AzureAiPlayground.Controllers.Models;
 using AzureAiPlayground.Support;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Nest;
+using System.Text;
+using System.Text.Json;
+using TiktokenSharp;
 
 namespace AzureAiPlayground.Controllers
 {
@@ -20,6 +24,8 @@ namespace AzureAiPlayground.Controllers
         private readonly ElasticSearchService _elasticSearchService;
         private readonly IOptionsMonitor<DocumentsConfig> _documentsConfig;
         private readonly FolderDatabase<ApiPayload> _db;
+        
+        private readonly Serilog.ILogger _logger = Serilog.Log.ForContext<DocumentSegmentsController>();
 
         public DocumentSegmentsController(
             FolderDatabaseFactory folderDatabaseFactory,
@@ -53,7 +59,7 @@ namespace AzureAiPlayground.Controllers
             var result = await _elasticSearchService.IndexAsync(_documentsConfig.CurrentValue.DocumentSegmentsIndexName, segments);
             if (!result)
             {
-                return StatusCode(500, new { Error = "Internal error indexing data"});
+                return StatusCode(500, new { Error = "Internal error indexing data" });
             }
 
             return Ok();
@@ -76,6 +82,88 @@ namespace AzureAiPlayground.Controllers
             }).ToList();
 
             return Ok(segmentMatches);
+        }
+
+        [HttpPost]
+        [Route("doQuestion")]
+        public async Task<ActionResult> Question(DocumentSegmentsQuestionsDto dto)
+        {
+            var segmentSearch = dto.ToSegmentSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName);
+            List<DebugStep> logs = new List<DebugStep>();
+            //perform the query raw
+            var result = await _elasticSearchService.SearchSegmentsAsync(segmentSearch);
+
+            if (result.Count == 0)
+            {
+                logs.Add(new DebugStep("search-result", "The query returned no segments"));
+                return Ok(new DocumentSegmentsAnswerDto() { Answer  = "No piece of relevant text found", DebugSteps = Array.Empty<DebugStep>() });
+            }
+
+            //create the context grouping first 4 results
+            StringBuilder sb = new StringBuilder();
+            //we need to include context up to 3000 tokens
+            int totalTokens = 0;
+            foreach (var item in result)
+            {
+                var tokens = TikTokenTokenizer.GetTokenCount(item.Content);
+                if (totalTokens + tokens > 3000) break; 
+                totalTokens += tokens;
+                sb.AppendLine($"citation: {{\"DocId\": \"{item.DocumentId}\", \"Page\": \"{item.PageId}\", \"Tag\": \"{item.Tag}\"}}");
+                sb.AppendLine(item.Content);
+                sb.AppendLine("---");
+            }
+
+            var chatQuestion = @$"I'll give you a question that you will answer based on citations. Each citation begins with a citation section, your answer will be formatted in JSON with the following fields
+Answer: the answer to the question
+Citations: an array that contains citations used to answer the question
+Citations:
+""""""
+{sb}
+""""""
+Question: {dto.Question}";
+
+            var payload = new ApiPayload
+            {
+                Messages = new List<Message>
+            {
+                new Message { Role = "system", Content = "You are a chatbot that will answer questions based on a context included in the prompt. You will never user your memory to answer the question." },
+                new Message { Role = "user", Content = chatQuestion }
+            },
+                MaxTokens = 500,
+                Temperature = 0.8,
+                FrequencyPenalty = 1,
+                PresencePenalty = 2,
+                TopP = 0.9,
+                Stop = null
+            };
+            logs.Add(new DebugStep("GPT3.5 call - question/answer", payload.Dump()));
+            var chatResult = await _chatClient.SendMessageAsync("gpt35", payload);
+            logs.Add(new DebugStep("GPT3.5 result - question/answer", chatResult.Dump()));
+
+            //try to parse answer as json, we need to extract citations
+            var answer = chatResult.Content;
+            IReadOnlyCollection<Citation>? citations = null;    
+            try
+            {
+                //try to parse.
+                var answerJson = JsonSerializer.Deserialize<AnswerData>(answer);
+                if (answerJson != null)
+                {
+                    answer = answerJson.Answer;
+                    citations = answerJson.Citations;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Chat GPT did not anwer a valid json");
+            }
+
+            return Ok(new DocumentSegmentsAnswerDto()
+            {
+                Answer = answer,
+                Citations = citations,
+                DebugSteps = logs
+            });
         }
     }
 }

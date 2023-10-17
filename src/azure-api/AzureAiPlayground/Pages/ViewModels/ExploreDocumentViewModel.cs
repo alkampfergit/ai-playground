@@ -257,9 +257,9 @@ Question: {Question}";
             TopP = 0.9,
             Stop = null
         };
-        Logs.AddLog("GPT53 call - question/answer", payload.Dump());
+        Logs.AddLog("GPT3.5 call - question/answer", payload.Dump());
         var result = await _chatClient.SendMessageAsync("gpt35", payload);
-        Logs.AddLog("GPT53 result - question/answer", result.Dump());
+        Logs.AddLog("GPT3.5 result - question/answer", result.Dump());
     }
 
     #endregion

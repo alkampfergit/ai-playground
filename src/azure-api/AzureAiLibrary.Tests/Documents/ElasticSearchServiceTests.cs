@@ -69,6 +69,25 @@ public class ElasticSearchServiceTests : IDisposable, IAsyncLifetime
     }
 
     [Fact]
+    public async Task Basic_store_and_retrieve()
+    {
+        //when the service is inited it should cretate a mapping
+        await _sut.InitIndexAsync(_indexName);
+        var doc = new ElasticDocument(Guid.NewGuid().ToString());
+        doc.AddStringProperty("customer", "foo");
+        doc.AddNumericProperty("bar", 2);
+
+        var insert = await _sut.IndexAsync(_indexName, new[] { doc });
+        await _sut.Refresh(_indexName);
+        ElasticDocument? reloaded = await _sut.GetByIdAsync(_indexName, doc.Id);
+        Assert.NotNull(reloaded);
+
+        //verify properteis
+        Assert.Equal("foo", doc.GetStringProperty("customer"));
+        Assert.Equal(2, doc.GetNumericProperty("bar"));
+    }
+
+    [Fact]
     public async Task Can_delete_by_query()
     {
         //when the service is inited it should cretate a mapping

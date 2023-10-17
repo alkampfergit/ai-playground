@@ -1,4 +1,4 @@
-﻿using AzureAiLibrary.Documents.DocumentChat;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace AzureAiPlayground.Controllers.Models;
 
@@ -36,15 +36,56 @@ public class SegmentMatchDto
     public string? Tag { get; set; }
 }
 
-public static class SegmentsSearchDtoExtensions
+public class DocumentSegmentsQuestionsDto
 {
-    public static SegmentsSearch ToSegmentsSearch(this SegmentsSearchDto dto, string indexName)
+    /// <summary>
+    /// Can restrict search in a specific document
+    /// </summary>
+    public IEnumerable<string>? DocId { get; set; }
+
+    /// <summary>
+    /// To help the system the user can specify kewords to be used to search for the answer.
+    /// </summary>
+    public string? Keywords { get; set; }
+
+    public required string Question { get; set; }
+}
+
+public class DocumentSegmentsAnswerDto
+{
+    public required string Answer { get; set; }
+
+    public IReadOnlyCollection<Citation>? Citations { get; set; }
+
+    public required IReadOnlyCollection<DebugStep> DebugSteps { get; set; }
+}
+
+public class DebugStep
+{
+    [SetsRequiredMembers]
+    public DebugStep(string title, string data)
     {
-        return new SegmentsSearch(indexName)
-        {
-            DocId = dto.DocId,
-            NumOfRecords = dto.NumOfRecords,
-            Keywords = dto.Keywords,
-        };
+        Title=title;
+        Data=data;
     }
+
+    public required string Title { get; set; }
+
+    public required string Data { get; set; }
+}
+
+public class Citation
+{
+    public string? DocId { get; set; }
+
+    public string? Page { get; set; }
+
+    public string? Tag { get; set; }
+}
+
+public class AnswerData
+{
+    public required string Answer { get; set; }
+
+    public List<Citation>? Citations { get; set; }
 }

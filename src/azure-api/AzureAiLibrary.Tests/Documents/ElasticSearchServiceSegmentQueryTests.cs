@@ -1,6 +1,7 @@
 using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.DocumentChat;
 using Nest;
+using NuGet.Frameworks;
 
 namespace AzureAiLibrary.Tests.Documents;
 
@@ -70,6 +71,10 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
         Assert.Equal(2, result.Count);
 
         Assert.Contains(result, r => r.Content == "Some interesting content");
+        var doca = result.Single(r => r.Content== "Some interesting content");
+        Assert.Equal(2, doca.PageId);
+        Assert.Equal("file1", doca.Tag);
+        Assert.Equal("doc1", doca.DocumentId);
         Assert.Contains(result, r => r.Content == "We could index some data and try to retrieve with some interesting data");
     }
 
