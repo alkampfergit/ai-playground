@@ -10,6 +10,7 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
     private readonly ElasticClient _elasticClient;
     private readonly string _indexName;
     private readonly Random _random;
+    private List<ElasticDocumentSegment> _segments;
 
     public ElasticSearchServiceSegmentQueryTests()
     {
@@ -19,7 +20,7 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
 
         _indexName = "test_" + Guid.NewGuid().ToString().Replace("-", "");
         _random = new Random((int)DateTime.Now.Ticks);
-   }
+    }
 
     public async Task InitializeAsync()
     {
@@ -34,15 +35,15 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
 
     private async Task IndexData()
     {
-        List<ElasticDocumentSegment> segments = new List<ElasticDocumentSegment>();
-        segments.Add(new ElasticDocumentSegment("doc1", "This is a beautiful test", 1) { Tag = "file1"});
-        segments.Add(new ElasticDocumentSegment("doc1", "Some interesting content", 2) { Tag = "file1"});
-        segments.Add(new ElasticDocumentSegment("doc1", "We can talk about complete mediation", 1) { Tag = "file2"});
-        segments.Add(new ElasticDocumentSegment("doc1", "We could index some data and try to retrieve with some interesting data", 1) { Tag = "file2"});
-        segments.Add(new ElasticDocumentSegment("doc2", "Oh oh oh, this is Christmas", 1));
+        _segments = new List<ElasticDocumentSegment>();
+        _segments.Add(new ElasticDocumentSegment("doc1", "This is a beautiful test", 1) { Tag = "file1" });
+        _segments.Add(new ElasticDocumentSegment("doc1", "Some interesting content", 2) { Tag = "file1" });
+        _segments.Add(new ElasticDocumentSegment("doc1", "We can talk about complete mediation", 1) { Tag = "file2" });
+        _segments.Add(new ElasticDocumentSegment("doc1", "We could index some data and try to retrieve with some interesting data", 1) { Tag = "file2" });
+        _segments.Add(new ElasticDocumentSegment("doc2", "Oh oh oh, this is Christmas", 1));
 
         //We cannot do async in constructor.
-        var indexed = await _sut.IndexAsync(_indexName, segments);
+        var indexed = await _sut.IndexAsync(_indexName, _segments);
         Assert.True(indexed);
         await _sut.Refresh(_indexName);
     }
@@ -59,5 +60,51 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
         segmentSearch.DocId = new string[] { "doc1" };
         var result = await _sut.SearchSegmentsAsync(segmentSearch);
         Assert.Equal(4, result.Count);
+    }
+
+    [Fact]
+    public async Task Keyword_search()
+    {
+        var segmentSearch = new SegmentsSearch(_indexName);
+        segmentSearch.DocId = new string[] { "doc1" };
+        segmentSearch.Keywords = "interesting";
+        var result = await _sut.SearchSegmentsAsync(segmentSearch);
+        Assert.Equal(2, result.Count);
+
+        Assert.Equal("Some interesting content", result.ElementAt(0).Content);
+        Assert.Equal(_segments[3].Content, result.ElementAt(1).Content);
+    }
+
+    [Fact]
+    public async Task Delete_and_reindex_entire_document() 
+    {
+        //save some document data then delete all document by document id
+        var segments = new List<ElasticDocumentSegment>();
+        segments.Add(new ElasticDocumentSegment("doc3", "page 1", 1) { Tag = "file1" });
+        segments.Add(new ElasticDocumentSegment("doc3", "page 2", 2) { Tag = "file1" });
+        segments.Add(new ElasticDocumentSegment("doc3", "page 1", 1) { Tag = "file3" });
+
+        //We cannot do async in constructor.
+        var indexed = await _sut.IndexAsync(_indexName, _segments);
+        Assert.True(indexed);
+        await _sut.Refresh(_indexName);
+
+        //ACT: delete the document and reindex with less data
+        var segmentSearch = new SegmentsSearch(_indexName);
+        segmentSearch.DocId = new string[] { "doc3" };
+        await _sut.DeleteSegmentsByQueryAsync(segmentSearch);
+        await _sut.Refresh(_indexName);
+
+        //remove last element from segments and reindex everything
+        segments.RemoveAt(segments.Count - 1);
+        indexed = await _sut.IndexAsync(_indexName, segments);
+        Assert.True(indexed);
+        await _sut.Refresh(_indexName);
+
+        //ASSERT: check that we have only 2 segments
+        segmentSearch = new SegmentsSearch(_indexName);
+        segmentSearch.DocId = new string[] { "doc3" };
+        var result = await _sut.SearchSegmentsAsync(segmentSearch);
+        Assert.Equal(2, result.Count);
     }
 }

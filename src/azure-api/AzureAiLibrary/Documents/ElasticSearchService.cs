@@ -550,9 +550,14 @@ public class ElasticSearchService
     public async Task<IReadOnlyCollection<ElasticDocumentSegment>> SearchSegmentsAsync(SegmentsSearch segmentSearch)
     {
         //perform an ElasticSearch query with query string frield with the nest driver
-        var searchResult = await _elasticClient.SearchAsync<ElasticDocumentSegment>(s => segmentSearch.ConfigureQuery(s));
+        var searchResult = await _elasticClient.SearchAsync<ElasticDocumentSegment>(segmentSearch.ConfigureQuery);
 
         return PostQuery(searchResult);
+    }
+
+    public Task DeleteSegmentsByQueryAsync(SegmentsSearch segmentSearch)
+    {
+        return _elasticClient.DeleteByQueryAsync<ElasticDocumentSegment>(segmentSearch.ConfigureQuery);
     }
 
     private QueryContainer CreateQuery(

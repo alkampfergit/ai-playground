@@ -18,15 +18,28 @@ namespace AzureAiLibrary.Documents.DocumentChat
 
         public int NumOfRecords { get; set; } = 10;
 
-        private bool IsEmpty => DocId == null;
+        /// <summary>
+        /// Search keyword, this is what the user specify as keyword.
+        /// </summary>
+        public string Keywords { get; set; }
+
+        private bool IsEmpty => DocId == null
+            && String.IsNullOrEmpty(Keywords);
 
         internal ISearchRequest ConfigureQuery(SearchDescriptor<ElasticDocumentSegment> s)
         {
             return s
                 .Index(_indexName)
                 .Size(NumOfRecords)
-                .Query(q => CreateQuery(q)
-           );
+                .Query(CreateQuery);
+        }
+
+        internal IDeleteByQueryRequest ConfigureQuery(DeleteByQueryDescriptor<ElasticDocumentSegment> s)
+        {
+            return s
+                .Index(_indexName)
+                .Size(NumOfRecords)
+                .Query(CreateQuery);
         }
 
         private QueryContainer CreateQuery(QueryContainerDescriptor<ElasticDocumentSegment> q)
@@ -43,6 +56,11 @@ namespace AzureAiLibrary.Documents.DocumentChat
             if (DocId?.Any() == true)
             {
                 queryParts.Add(q.Terms(tq => tq.Field("s_docid.nal").Terms(DocId)));
+            }
+
+            if (!String.IsNullOrEmpty(Keywords))
+            {
+                queryParts.Add(q.QueryString(mq => mq.Fields("t_content").Query(Keywords)));
             }
 
             return q.Bool(bq => bq.Must(queryParts.ToArray()));

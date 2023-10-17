@@ -14,5 +14,10 @@
         /// src\python\langchainVarious\vectorization\vectorservice.py
         /// </summary>
         public string PythonTokenizerFlaskUrl { get; set; } = null!;
+
+        /// <summary>
+        /// Name of the index in elasticsearch that will contains segments.
+        /// </summary>
+        public string DocumentSegmentsIndexName { get; set; } = null!;
     }
 }
