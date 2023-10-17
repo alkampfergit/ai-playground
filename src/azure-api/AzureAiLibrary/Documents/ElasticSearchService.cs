@@ -88,7 +88,7 @@ public class ElasticSearchService
     public async Task<bool> IndexAsync(string indexName, IReadOnlyCollection<ElasticDocument> documents)
     {
         var bulk = new BulkDescriptor();
-
+        await EnsureIndexAsync(indexName);
         foreach (dynamic document in documents)
         {
             bulk.Index<ElasticDocument>(op =>
@@ -110,6 +110,20 @@ public class ElasticSearchService
         }
 
         return result.IsValid;
+    }
+
+    private readonly HashSet<string> _alreadyIndexedIndices = new HashSet<string>();
+    private Task EnsureIndexAsync(string indexName)
+    {
+        if (!_alreadyIndexedIndices.Contains(indexName))
+        {
+            lock (_alreadyIndexedIndices)
+            {
+                _alreadyIndexedIndices.Add(indexName);
+            }
+            return InitIndexAsync(indexName);
+        }
+        return Task.CompletedTask;
     }
 
     public async Task<ElasticDocument?> GetByIdAsync(string indexName, string id)

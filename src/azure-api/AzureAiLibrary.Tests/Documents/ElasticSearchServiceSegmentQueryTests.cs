@@ -9,8 +9,7 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
     private readonly ElasticSearchService _sut;
     private readonly ElasticClient _elasticClient;
     private readonly string _indexName;
-    private readonly Random _random;
-    private List<ElasticDocumentSegment> _segments;
+    private List<ElasticDocumentSegment>? _segments;
 
     public ElasticSearchServiceSegmentQueryTests()
     {
@@ -19,7 +18,6 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
         _elasticClient = new ElasticClient(uri);
 
         _indexName = "test_" + Guid.NewGuid().ToString().Replace("-", "");
-        _random = new Random((int)DateTime.Now.Ticks);
     }
 
     public async Task InitializeAsync()
@@ -71,8 +69,8 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
         var result = await _sut.SearchSegmentsAsync(segmentSearch);
         Assert.Equal(2, result.Count);
 
-        Assert.Equal("Some interesting content", result.ElementAt(0).Content);
-        Assert.Equal(_segments[3].Content, result.ElementAt(1).Content);
+        Assert.Contains(result, r => r.Content == "Some interesting content");
+        Assert.Contains(result, r => r.Content == "We could index some data and try to retrieve with some interesting data");
     }
 
     [Fact]

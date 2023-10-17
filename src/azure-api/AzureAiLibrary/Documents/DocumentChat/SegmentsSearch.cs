@@ -21,7 +21,7 @@ namespace AzureAiLibrary.Documents.DocumentChat
         /// <summary>
         /// Search keyword, this is what the user specify as keyword.
         /// </summary>
-        public string Keywords { get; set; }
+        public string? Keywords { get; set; }
 
         private bool IsEmpty => DocId == null
             && String.IsNullOrEmpty(Keywords);

@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace AzureAiLibrary.Documents.DocumentChat
+﻿namespace AzureAiLibrary.Documents.DocumentChat
 {
     /// <summary>
     /// Special class to help working with segments using basic class <see cref="ElasticDocument"/>" 
@@ -47,7 +45,7 @@ namespace AzureAiLibrary.Documents.DocumentChat
         /// or multiple sources that constitute a document, this is an opaque value that will
         /// be returned to the user.
         /// </summary>
-        public string Tag
+        public string? Tag
         {
             get => base.GetStringProperty("tag") ?? string.Empty;
             set => AddStringProperty("tag", value);

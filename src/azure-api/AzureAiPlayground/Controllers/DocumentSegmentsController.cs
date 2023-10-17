@@ -1,6 +1,7 @@
 ﻿using AzureAiLibrary;
 using AzureAiLibrary.Configuration;
 using AzureAiLibrary.Documents;
+using AzureAiLibrary.Documents.DocumentChat;
 using AzureAiLibrary.Helpers;
 using AzureAiPlayground.Controllers.Models;
 using AzureAiPlayground.Support;
@@ -38,26 +39,43 @@ namespace AzureAiPlayground.Controllers
 
         [HttpPost]
         [Route("index-document")]
-        public async Task<ActionResult> SingleMessage(ChatRequestMessage dto)
+        public async Task<ActionResult> SingleMessage(SegmentedDocumentDto doc)
         {
-            var message = _templateHelper.ExpandTemplates(dto.Message);
-            var payload = new ApiPayload
-            {
-                Messages = new List<Message>()
-                {
-                    new Message("system", "You are an helpful AI"),
-                    new Message("user", message),
-                },
-                MaxTokens = 800,
-                Temperature = 0.5,
-                FrequencyPenalty = 0,
-                PresencePenalty = 0,
-                TopP = 0.95,
-                Stop = null
-            };
-            var response = await _chatClient.SendMessageAsync(_azureOpenAiConfiguration.CurrentValue.Default, payload);
+            //first of all we will delete everything
+            var segmentSearch = new SegmentsSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName);
+            segmentSearch.DocId = new string[] { doc.DocumentId };
+            await _elasticSearchService.DeleteSegmentsByQueryAsync(segmentSearch);
 
-            return Ok(response.Content);
+            //now we need to index all data in docs
+            var segments = doc.Segments
+                .Select(x => new ElasticDocumentSegment(doc.DocumentId, x.Content, x.PageId) { Tag = x.Tag })
+                .ToList();
+            var result = await _elasticSearchService.IndexAsync(_documentsConfig.CurrentValue.DocumentSegmentsIndexName, segments);
+            if (!result)
+            {
+                return StatusCode(500, new { Error = "Internal error indexing data"});
+            }
+
+            return Ok();
+        }
+
+        [HttpPost]
+        [Route("search")]
+        public async Task<ActionResult> SearchSegments(SegmentsSearchDto dto)
+        {
+            var segmentsSearch = dto.ToSegmentsSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName);
+            var result = await _elasticSearchService.SearchSegmentsAsync(segmentsSearch);
+
+            //now translate results into SegmentMatchDto
+            var segmentMatches = result.Select(x => new SegmentMatchDto
+            {
+                DocId = x.DocumentId,
+                Content = x.Content,
+                Page = x.PageId,
+                Tag = x.Tag,
+            }).ToList();
+
+            return Ok(segmentMatches);
         }
     }
 }
