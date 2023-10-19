@@ -55,7 +55,7 @@ namespace AzureAiLibrary.Documents.DocumentChat
             //ok we have some query, first of all check if we have a keyword query.
             if (DocId?.Any() == true)
             {
-                queryParts.Add(q.Terms(tq => tq.Field("s_docid.nal").Terms(DocId)));
+                queryParts.Add(q.Terms(tq => tq.Field("s_docid.nal").Terms(DocId.Select(d => d.ToLower()))));
             }
 
             if (!String.IsNullOrEmpty(Keywords))

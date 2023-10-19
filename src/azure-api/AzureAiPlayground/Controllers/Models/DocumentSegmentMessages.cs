@@ -12,7 +12,15 @@ public class SegmentedDocumentDto
 public class DocumentSegmentDto
 {
     public required string Content { get; set; }
+
     public int PageId { get; set; }
+
+    /// <summary>
+    /// Tag is needed to group a sequence of segments that are related to the same topic. 
+    /// All segments are segmented by token length but before they are grouped by tag. This is
+    /// especially useful if a "logical document" is composed by multiple files so you can use
+    /// each file name as a tag.
+    /// </summary>
     public string? Tag { get; set; }
 }
 

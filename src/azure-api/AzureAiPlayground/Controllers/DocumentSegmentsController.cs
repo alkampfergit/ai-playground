@@ -7,10 +7,8 @@ using AzureAiPlayground.Controllers.Models;
 using AzureAiPlayground.Support;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Nest;
 using System.Text;
 using System.Text.Json;
-using TiktokenSharp;
 
 namespace AzureAiPlayground.Controllers
 {
@@ -24,7 +22,7 @@ namespace AzureAiPlayground.Controllers
         private readonly ElasticSearchService _elasticSearchService;
         private readonly IOptionsMonitor<DocumentsConfig> _documentsConfig;
         private readonly FolderDatabase<ApiPayload> _db;
-        
+
         private readonly Serilog.ILogger _logger = Serilog.Log.ForContext<DocumentSegmentsController>();
 
         public DocumentSegmentsController(
@@ -45,18 +43,32 @@ namespace AzureAiPlayground.Controllers
 
         [HttpPost]
         [Route("index-document")]
-        public async Task<ActionResult> SingleMessage(SegmentedDocumentDto doc)
+        public async Task<ActionResult> IndexDocument(SegmentedDocumentDto doc)
         {
             //first of all we will delete everything
             var segmentSearch = new SegmentsSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName);
             segmentSearch.DocId = new string[] { doc.DocumentId };
             await _elasticSearchService.DeleteSegmentsByQueryAsync(segmentSearch);
 
-            //now we need to index all data in docs
-            var segments = doc.Segments
-                .Select(x => new ElasticDocumentSegment(doc.DocumentId, x.Content, x.PageId) { Tag = x.Tag })
-                .ToList();
-            var result = await _elasticSearchService.IndexAsync(_documentsConfig.CurrentValue.DocumentSegmentsIndexName, segments);
+            //now we need to segment with a custom segmenter, we group by tag.
+            var groups = doc.Segments.GroupBy(x => x.Tag);
+            var segmenter = new Segmenter(400, 20);
+
+            List<ElasticDocumentSegment> elasticSsgments = new();
+            foreach (var group in groups)
+            {
+                //Create a series of segments with the correct numbers of token.
+                var segments = segmenter.Segment(group.OrderBy(s => s.PageId).Select(x => x.Content));
+                foreach (var segment in segments)
+                {
+                    elasticSsgments.Add(new ElasticDocumentSegment(doc.DocumentId, segment.Content, segment.Index)
+                    {
+                        Tag = group.Key
+                    });
+                }
+            }
+
+            var result = await _elasticSearchService.IndexAsync(_documentsConfig.CurrentValue.DocumentSegmentsIndexName, elasticSsgments);
             if (!result)
             {
                 return StatusCode(500, new { Error = "Internal error indexing data" });
@@ -106,7 +118,7 @@ namespace AzureAiPlayground.Controllers
             foreach (var item in result)
             {
                 var tokens = TikTokenTokenizer.GetTokenCount(item.Content);
-                if (totalTokens + tokens > 3000) break; 
+                if (totalTokens + tokens > 3000) break;
                 totalTokens += tokens;
                 sb.AppendLine($"citation: {{\"DocId\": \"{item.DocumentId}\", \"Page\": \"{item.PageId}\", \"Tag\": \"{item.Tag}\"}}");
                 sb.AppendLine(item.Content);
@@ -142,7 +154,7 @@ Question: {dto.Question}";
 
             //try to parse answer as json, we need to extract citations
             var answer = chatResult.Content;
-            IReadOnlyCollection<Citation>? citations = null;    
+            IReadOnlyCollection<Citation>? citations = null;
             try
             {
                 //try to parse.

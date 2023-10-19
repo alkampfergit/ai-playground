@@ -571,6 +571,7 @@ public class ElasticSearchService
 
     public Task DeleteSegmentsByQueryAsync(SegmentsSearch segmentSearch)
     {
+        segmentSearch.NumOfRecords = 10000;
         return _elasticClient.DeleteByQueryAsync<ElasticDocumentSegment>(segmentSearch.ConfigureQuery);
     }
 

@@ -78,14 +78,16 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
         Assert.Contains(result, r => r.Content == "We could index some data and try to retrieve with some interesting data");
     }
 
-    [Fact]
-    public async Task Delete_and_reindex_entire_document() 
+    [Theory]
+    [InlineData ("doc3")]
+    [InlineData ("DOC3")]
+    public async Task Delete_and_reindex_entire_document(string docid)
     {
         //save some document data then delete all document by document id
         var segments = new List<ElasticDocumentSegment>();
-        segments.Add(new ElasticDocumentSegment("doc3", "page 1", 1) { Tag = "file1" });
-        segments.Add(new ElasticDocumentSegment("doc3", "page 2", 2) { Tag = "file1" });
-        segments.Add(new ElasticDocumentSegment("doc3", "page 1", 1) { Tag = "file3" });
+        segments.Add(new ElasticDocumentSegment(docid, "page 1", 1) { Tag = "file1" });
+        segments.Add(new ElasticDocumentSegment(docid, "page 2", 2) { Tag = "file1" });
+        segments.Add(new ElasticDocumentSegment(docid, "page 1", 1) { Tag = "file3" });
 
         //We cannot do async in constructor.
         var indexed = await _sut.IndexAsync(_indexName, _segments);
@@ -94,7 +96,7 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
 
         //ACT: delete the document and reindex with less data
         var segmentSearch = new SegmentsSearch(_indexName);
-        segmentSearch.DocId = new string[] { "doc3" };
+        segmentSearch.DocId = new string[] { docid };
         await _sut.DeleteSegmentsByQueryAsync(segmentSearch);
         await _sut.Refresh(_indexName);
 
@@ -106,7 +108,7 @@ public class ElasticSearchServiceSegmentQueryTests : IDisposable, IAsyncLifetime
 
         //ASSERT: check that we have only 2 segments
         segmentSearch = new SegmentsSearch(_indexName);
-        segmentSearch.DocId = new string[] { "doc3" };
+        segmentSearch.DocId = new string[] { docid };
         var result = await _sut.SearchSegmentsAsync(segmentSearch);
         Assert.Equal(2, result.Count);
     }
