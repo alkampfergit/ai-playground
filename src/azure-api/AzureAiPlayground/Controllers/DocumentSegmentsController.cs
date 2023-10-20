@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AzureAiPlayground.Controllers
 {
@@ -96,6 +97,73 @@ namespace AzureAiPlayground.Controllers
             return Ok(segmentMatches);
         }
 
+        private static Regex _documentRegex = new Regex(@"Document_\d+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        [HttpPost]
+        [Route("raw-question")]
+        [IgnoreAntiforgeryToken]
+        public async Task<ActionResult> RawQuestion(ChatRequestMessage dto)
+        {
+            //ok we need to do some "hardcoded" work here, we are demoing a system where we know that document
+            //ids are in the form Document_xxx where xxx is a number, find the document with a regex
+            var docId = _documentRegex.Match(dto.Message)?.Value;
+
+            //now I need to extract keyword from the question, we need to interact and extract
+            string keywords = await ExtractKeywords(dto.Message);
+
+            //ok now we have the keyword, we need to use them to search inside documents
+            var segmentSearch = new SegmentsSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName)
+            {
+                DocId = string.IsNullOrEmpty(docId) ? Array.Empty<string>() : [docId],
+                NumOfRecords = 4,
+                Keywords = keywords,
+            };
+
+            //now we will perform a segment search to find the segments
+            List<DebugStep> logs = [];
+
+            //perform the query raw
+            var result = await _elasticSearchService.SearchSegmentsAsync(segmentSearch);
+
+            if (result.Count == 0)
+            {
+                logs.Add(new DebugStep("search-result", "The query returned no segments"));
+                return Ok(new DocumentSegmentsAnswerDto() { Answer = $"No matches in document for keywords {keywords}", DebugSteps = Array.Empty<DebugStep>() });
+            }
+
+            //create the context grouping first 4 results
+            StringBuilder sb = new StringBuilder();
+            //we need to include context up to 3000 tokens
+            int totalTokens = 0;
+            foreach (var item in result)
+            {
+                var tokens = TikTokenTokenizer.GetTokenCount(item.Content);
+                if (totalTokens + tokens > 3000) break;
+                totalTokens += tokens;
+                sb.AppendLine($"citation: {{\"DocId\": \"{item.DocumentId}\", \"Page\": \"{item.PageId}\", \"Tag\": \"{item.Tag}\"}}");
+                sb.AppendLine(item.Content);
+                sb.AppendLine("\"\"\"");
+            }
+
+            var chatQuestion = @$"I'll give you a question that you will answer based on citations. 
+In the question the term {docId} refers to the document that contains the context.
+Context:
+""""""
+{sb}
+
+Question: {dto.Message}";
+
+            const string systemMessage = "You are a chatbot that will answer questions based on a context included in the prompt. You will never user your memory to answer the question.";
+            ApiPayload payload = CreateBasePayload(
+                systemMessage,
+                chatQuestion);
+            logs.Add(new DebugStep("GPT3.5 call - question/answer", payload.Dump()));
+            var chatResult = await _chatClient.SendMessageAsync("gpt35", payload);
+            logs.Add(new DebugStep("GPT3.5 result - question/answer", chatResult.Dump()));
+
+            return Ok(chatResult.Content);
+        }
+
         [HttpPost]
         [Route("doQuestion")]
         public async Task<ActionResult> Question(DocumentSegmentsQuestionsDto dto)
@@ -108,7 +176,7 @@ namespace AzureAiPlayground.Controllers
             if (result.Count == 0)
             {
                 logs.Add(new DebugStep("search-result", "The query returned no segments"));
-                return Ok(new DocumentSegmentsAnswerDto() { Answer  = "No piece of relevant text found", DebugSteps = Array.Empty<DebugStep>() });
+                return Ok(new DocumentSegmentsAnswerDto() { Answer = "No piece of relevant text found", DebugSteps = Array.Empty<DebugStep>() });
             }
 
             //create the context grouping first 4 results
@@ -134,20 +202,8 @@ Citations:
 """"""
 Question: {dto.Question}";
 
-            var payload = new ApiPayload
-            {
-                Messages = new List<Message>
-            {
-                new Message { Role = "system", Content = "You are a chatbot that will answer questions based on a context included in the prompt. You will never user your memory to answer the question." },
-                new Message { Role = "user", Content = chatQuestion }
-            },
-                MaxTokens = 500,
-                Temperature = 0.8,
-                FrequencyPenalty = 1,
-                PresencePenalty = 2,
-                TopP = 0.9,
-                Stop = null
-            };
+            var systemMessage = "You are a chatbot that will answer questions based on a context included in the prompt. You will never user your memory to answer the question.";
+            var payload = CreateBasePayload(systemMessage, chatQuestion);
             logs.Add(new DebugStep("GPT3.5 call - question/answer", payload.Dump()));
             var chatResult = await _chatClient.SendMessageAsync("gpt35", payload);
             logs.Add(new DebugStep("GPT3.5 result - question/answer", chatResult.Dump()));
@@ -177,5 +233,39 @@ Question: {dto.Question}";
                 DebugSteps = logs
             });
         }
+
+        private async Task<string> ExtractKeywords(string message)
+        {
+            const string systemMessage = "You are a search assistant expert in Searching into Elasticsearch with BM25";
+            string prompt = $@"You will extract space separated keywords from a question made by the user.
+Please ignore anything with the format document_xxx where xxx is a number.
+question: {message}:
+keywords: ";
+            ApiPayload payload = CreateBasePayload(systemMessage, prompt);
+            var chatResult = await _chatClient.SendMessageAsync("gpt35", payload);
+            var answer = chatResult.Content;
+            return answer;
+        }
+
+        private static ApiPayload CreateBasePayload(
+            string systemMessage,
+            string chatQuestion)
+        {
+            return new ApiPayload
+            {
+                Messages = new List<Message>
+            {
+                new Message { Role = "system", Content = systemMessage },
+                new Message { Role = "user", Content = chatQuestion }
+            },
+                MaxTokens = 500,
+                Temperature = 0.2,
+                FrequencyPenalty = 1,
+                PresencePenalty = 2,
+                TopP = 0.9,
+                Stop = null
+            };
+        }
     }
+
 }

@@ -50,13 +50,15 @@ namespace AzureAiLibrary.Documents.DocumentChat
 
             QueryContainer qc = q;
 
-            List<QueryContainer> queryParts = new List<QueryContainer>();
+            List<QueryContainer> queryParts = new();
 
             //ok we have some query, first of all check if we have a keyword query.
             if (DocId?.Any() == true)
             {
-                queryParts.Add(q.Terms(tq => tq.Field("s_docid.nal").Terms(DocId.Select(d => d.ToLower()))));
+                var shouldQueries = DocId.Select(docId => q.Match(mq => mq.Field("s_docid.nal").Query(docId))).ToArray();
+                queryParts.Add(q.Bool(b => b.Should(shouldQueries)));
             }
+
 
             if (!String.IsNullOrEmpty(Keywords))
             {
