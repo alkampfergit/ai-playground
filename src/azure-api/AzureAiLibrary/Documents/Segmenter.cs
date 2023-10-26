@@ -1,13 +1,25 @@
+﻿using System.Data;
 using System.Text;
+using System.Text.RegularExpressions;
 using TiktokenSharp;
 
 namespace AzureAiLibrary.Documents;
 
 public class Segmenter
 {
+    private static Regex[] _filterRegexes;
     private readonly int _tokenLength;
     private readonly int _tokenOverlap;
     private readonly TikToken _tikTokTokenizer;
+    private static Regex _unicode;
+
+    static Segmenter()
+    {
+        _unicode = new(@"\\u([0-9a-fA-F]{4})", RegexOptions.Compiled);
+        _filterRegexes = new Regex[]
+        {
+        };
+    }
 
     /// <summary>
     /// This is the class that contains a segmented result.
@@ -62,6 +74,9 @@ public class Segmenter
         int index = 0;
         foreach (var segment in segments)
         {
+            //we need to clear the segment
+            ClearGlibberis(segment);
+
             //split the word using spaces and carriage return
             //also we have bad words that are too long (symbols sequences)
             var tokens = segment
@@ -139,6 +154,15 @@ public class Segmenter
         return result;
     }
 
+    private void ClearGlibberis(string segment)
+    {
+        string cleanText = _unicode.Replace(segment, match =>
+        {
+            int code = int.Parse(match.Groups[1].Value, System.Globalization.NumberStyles.HexNumber);
+            return char.ConvertFromUtf32(code);
+        });
+    }
+
     /// <summary>
     /// Remove all ending separator avoiding segments that ends with a space.
     /// </summary>
@@ -146,7 +170,7 @@ public class Segmenter
     /// <returns></returns>
     private static string ExtractSegmentValue(StringBuilder currentSegment)
     {
-        while (currentSegment.Length > 0 && char.IsSeparator(currentSegment[currentSegment.Length -1])) 
+        while (currentSegment.Length > 0 && char.IsSeparator(currentSegment[currentSegment.Length - 1]))
         {
             currentSegment.Length--;
         }
@@ -155,9 +179,15 @@ public class Segmenter
 
     private bool FilterSegmentWord(string word)
     {
-        var symbolsCount = word.Count(char.IsSymbol);
-        //euristics, if we have more than 50% of the symbol in the text we need to drop.
-        if (symbolsCount > word.Length / 2)
+        if (word.Length > 100) return false; //euristic, glibberish
+
+        if (word.Length == 1 && !char.IsLetterOrDigit(word[0])) return false; //single char non letter non digit
+
+        var asciiCount = word.Count(char.IsAscii);
+        //euristics, if we have more than 50% of NON ascii it is not an interesting word.
+        //euristics: if all char are non ascii we can remove it.
+        if (asciiCount < word.Length / 2
+            || asciiCount == 0)
         {
             return false;
         }

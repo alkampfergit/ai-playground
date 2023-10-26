@@ -18,7 +18,7 @@
             var helper = new TemplateHelper(mockTemplateManager.Object);
 
             string input = $"Hello {template}, how are you?";
-            string expected = "Hello This is a test template., how are you?";
+            const string expected = "Hello This is a test template., how are you?";
 
             // Act
             string result = helper.ExpandTemplates(input);
@@ -34,8 +34,8 @@
             var mockTemplateManager = new Mock<ITemplateManager>();
             var helper = new TemplateHelper(mockTemplateManager.Object);
 
-            string? input = null;
-            string expected = "";
+            const string? input = null;
+            const string expected = "";
 
             // Act
             string result = helper.ExpandTemplates(input);
@@ -52,8 +52,8 @@
             mockTemplateManager.Setup(m => m.GetTemplateContent("test")).Returns((string)null);
             var helper = new TemplateHelper(mockTemplateManager.Object);
 
-            string templateName = "I have a missing @test template";
-            string expected = "I have a missing @test template";
+            const string templateName = "I have a missing @test template";
+            const string expected = "I have a missing @test template";
 
             // Act
             string result = helper.ExpandTemplates(templateName);

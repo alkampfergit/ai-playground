@@ -34,7 +34,7 @@ public class SegmenterTests
     public void Filter_out_symbol_word() 
     {
         var sut = new Segmenter(100, 10);
-        var segments = sut.Segment(new[] { "this contains word with ++++symbols++++ that must be excluded" });
+        var segments = sut.Segment(new[] { "this contains word with §§§§§§§§symbols§§§§§§§§ that must be excluded" });
         Assert.Equal("this contains word with that must be excluded", segments.Single().Content);
     }
 }
