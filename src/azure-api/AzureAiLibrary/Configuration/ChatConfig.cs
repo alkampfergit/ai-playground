@@ -19,7 +19,7 @@
             List<string> candidateFiles = new()
             {
                 Path.Combine(TemplateDir, templateName),
-                Path.Combine(TemplateDir, templateName, ".txt"),
+                Path.Combine(TemplateDir, templateName + ".txt"),
             };
             foreach (var candidate in candidateFiles)
             {

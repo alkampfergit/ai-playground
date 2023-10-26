@@ -1,6 +1,8 @@
 ﻿namespace AzureAiLibrary.Tests.Helpers
 {
+    using AzureAiLibrary.Configuration;
     using AzureAiLibrary.Helpers;
+    using Microsoft.Extensions.Options;
     using Moq;
     using Xunit;
 
@@ -60,6 +62,74 @@
 
             // Assert
             Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("This is the system message.", "This is the prompt withtout substitution\r\nin multiline")]
+        [InlineData("This is the system message\r\nwithnewline.", "This is the prompt withtout substitution\r\nin multiline")]
+        public void Basic_gpt_without_substitution(string system, string prompt)
+        {
+            // Arrange
+            var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(dir);
+
+            try
+            {
+                var templateName = Path.Combine(dir, "test.txt");
+                File.WriteAllText(templateName, $"{system}\n\n{prompt}");
+                var chatConfig = new ChatConfig
+                {
+                    TemplateDir = dir
+                };
+                var option = Mock.Of<IOptionsMonitor<ChatConfig>>(_ => _.CurrentValue == chatConfig);
+                var sut = new DefaultTemplateManager(option);
+
+                // Act
+                var (tsystem, tprompt) = sut.GetGptCallTemplate("test", new Dictionary<string, string> ());  
+
+                // Assert
+                Assert.Equal(system, tsystem);
+                Assert.Equal(prompt, tprompt);
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+
+        [Fact]
+        public void Basic_gpt_with_substitution()
+        {
+            // Arrange
+            var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(dir);
+
+            try
+            {
+                var templateName = Path.Combine(dir, "test.txt");
+                File.WriteAllText(templateName, $"This is the prompt with {{template1}} content\n\nThis is the prompt with {{content}} message");
+                var chatConfig = new ChatConfig
+                {
+                    TemplateDir = dir
+                };
+                var option = Mock.Of<IOptionsMonitor<ChatConfig>>(_ => _.CurrentValue == chatConfig);
+                var sut = new DefaultTemplateManager(option);
+
+                // Act
+                var (tsystem, tprompt) = sut.GetGptCallTemplate("test", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) 
+                {
+                    ["TEMplate1"] = "aaaaa",
+                    ["conteNT"] = "bbbbb"
+                });
+
+                // Assert
+                Assert.Equal("This is the prompt with aaaaa content", tsystem);
+                Assert.Equal("This is the prompt with bbbbb message", tprompt);
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
         }
     }
 }

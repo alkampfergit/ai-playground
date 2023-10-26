@@ -21,6 +21,7 @@ namespace AzureAiPlayground.Controllers
         private readonly TemplateHelper _templateHelper;
         private readonly ChatClient _chatClient;
         private readonly ElasticSearchService _elasticSearchService;
+        private readonly ITemplateManager _templateManager;
         private readonly IOptionsMonitor<DocumentsConfig> _documentsConfig;
         private readonly FolderDatabase<ApiPayload> _db;
 
@@ -31,6 +32,7 @@ namespace AzureAiPlayground.Controllers
             TemplateHelper templateHelper,
             ChatClient chatClient,
             ElasticSearchService elasticSearchService,
+            ITemplateManager templateManager,
             IOptionsMonitor<DocumentsConfig> documentsConfig,
             IOptionsMonitor<AzureOpenAiConfiguration> azureOpenAiConfiguration)
         {
@@ -38,6 +40,7 @@ namespace AzureAiPlayground.Controllers
             _templateHelper = templateHelper;
             _chatClient = chatClient;
             _elasticSearchService = elasticSearchService;
+            _templateManager = templateManager;
             _documentsConfig = documentsConfig;
             _db = folderDatabaseFactory.CreateDb<ApiPayload>();
         }
@@ -165,6 +168,69 @@ Question: {dto.Message}";
         }
 
         [HttpPost]
+        [Route("raw-question-template")]
+        [IgnoreAntiforgeryToken]
+        public async Task<ActionResult> RawQuestionTemplate(ChatRequestMessage dto)
+        {
+            //ok we need to do some "hardcoded" work here, we are demoing a system where we know that document
+            //ids are in the form Document_xxx where xxx is a number, find the document with a regex
+            var docId = _documentRegex.Match(dto.Message)?.Value;
+
+            //now I need to extract keyword from the question, we need to interact and extract
+            string keywords = await ExtractKeywordsTemplate(dto.Message);
+
+            //ok now we have the keyword, we need to use them to search inside documents
+            var segmentSearch = new SegmentsSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName)
+            {
+                DocId = string.IsNullOrEmpty(docId) ? Array.Empty<string>() : [docId],
+                NumOfRecords = 4,
+                Keywords = keywords,
+            };
+
+            //now we will perform a segment search to find the segments
+            List<DebugStep> logs = [];
+
+            //perform the query raw
+            var result = await _elasticSearchService.SearchSegmentsAsync(segmentSearch);
+
+            if (result.Count == 0)
+            {
+                logs.Add(new DebugStep("search-result", "The query returned no segments"));
+                return Ok(new DocumentSegmentsAnswerDto() { Answer = $"No matches in document for keywords {keywords}", DebugSteps = Array.Empty<DebugStep>() });
+            }
+
+            //create the context grouping first 4 results
+            StringBuilder sb = new StringBuilder();
+            //we need to include context up to 3000 tokens
+            int totalTokens = 0;
+            foreach (var item in result)
+            {
+                var tokens = TikTokenTokenizer.GetTokenCount(item.Content);
+                if (totalTokens + tokens > 3000) break;
+                totalTokens += tokens;
+                sb.AppendLine($"citation: {{\"DocId\": \"{item.DocumentId}\", \"Page\": \"{item.PageId}\", \"Tag\": \"{item.Tag}\"}}");
+                sb.AppendLine(item.Content);
+                sb.AppendLine("\"\"\"");
+            }
+
+            var (systemMessage, prompt) = _templateManager.GetGptCallTemplate("rag1", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["docid"] = docId,
+                ["context"] = sb.ToString(),
+                ["question"] = dto.Message,
+            });
+
+            ApiPayload payload = CreateBasePayload(
+                systemMessage,
+                prompt);
+            logs.Add(new DebugStep("GPT3.5 call - question/answer", payload.Dump()));
+            var chatResult = await _chatClient.SendMessageAsync("gpt35", payload);
+            logs.Add(new DebugStep("GPT3.5 result - question/answer", chatResult.Dump()));
+
+            return Ok(chatResult.Content);
+        }
+
+        [HttpPost]
         [Route("doQuestion")]
         public async Task<ActionResult> Question(DocumentSegmentsQuestionsDto dto)
         {
@@ -245,6 +311,34 @@ keywords: ";
             var chatResult = await _chatClient.SendMessageAsync("gpt35", payload);
             var answer = chatResult.Content;
             return answer;
+        }
+
+        private async Task<string> ExtractKeywordsTemplate(string message)
+        {
+            var (systemMessage, prompt) = _templateManager.GetGptCallTemplate("rag_question_enhancer1", new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "question", message }
+            });
+            ApiPayload payload = CreateBasePayload(systemMessage, prompt);
+            var chatResult = await _chatClient.SendMessageAsync("gpt35", payload);
+            var rawContent = chatResult.Content;
+
+            var keywords = rawContent.Split(' ');
+            //sometimes we have extra punctuation chars in the answer, we need to remove them
+            var sb = new StringBuilder(rawContent.Length);
+            foreach (var keyword in keywords)
+            {
+                foreach (var c in keyword)
+                {
+                    if (!char.IsPunctuation(c))
+                    {
+                        sb.Append(c);
+                    }
+                }
+                sb.Append(' ');
+            }
+            if (sb.Length > 0) sb.Length--;
+            return sb.ToString();
         }
 
         private static ApiPayload CreateBasePayload(
