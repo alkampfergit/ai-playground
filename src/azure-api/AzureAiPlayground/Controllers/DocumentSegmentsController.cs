@@ -117,7 +117,7 @@ namespace AzureAiPlayground.Controllers
             //ok now we have the keyword, we need to use them to search inside documents
             var segmentSearch = new SegmentsSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName)
             {
-                DocId = string.IsNullOrEmpty(docId) ? Array.Empty<string>() : [docId],
+                DocId = string.IsNullOrEmpty(docId) ? Array.Empty<string>() : new[] { docId },
                 NumOfRecords = 4,
                 Keywords = keywords,
             };
@@ -182,7 +182,7 @@ Question: {dto.Message}";
             //ok now we have the keyword, we need to use them to search inside documents
             var segmentSearch = new SegmentsSearch(_documentsConfig.CurrentValue.DocumentSegmentsIndexName)
             {
-                DocId = string.IsNullOrEmpty(docId) ? Array.Empty<string>() : [docId],
+                DocId = string.IsNullOrEmpty(docId) ? Array.Empty<string>() : new[] { docId },
                 NumOfRecords = 4,
                 Keywords = keywords,
             };
