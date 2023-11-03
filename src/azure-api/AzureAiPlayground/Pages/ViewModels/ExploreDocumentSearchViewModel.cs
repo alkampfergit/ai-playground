@@ -51,6 +51,11 @@ public class ExploreDocumentSearchViewModel
                             { "query", keywordSearch },
                             { "defaultPath", "Content" }
                         }
+                        //"text", new BsonDocument
+                        //{
+                        //    { "query", keywordSearch },
+                        //    { "path", "Content" }
+                        //}
                     },
                     {
                         "highlight", new BsonDocument
