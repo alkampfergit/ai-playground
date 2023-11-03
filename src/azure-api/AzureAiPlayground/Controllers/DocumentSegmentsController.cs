@@ -123,7 +123,7 @@ namespace AzureAiPlayground.Controllers
             };
 
             //now we will perform a segment search to find the segments
-            List<DebugStep> logs = [];
+            List<DebugStep> logs = new List<DebugStep>();
 
             //perform the query raw
             var result = await _elasticSearchService.SearchSegmentsAsync(segmentSearch);
@@ -188,7 +188,7 @@ Question: {dto.Message}";
             };
 
             //now we will perform a segment search to find the segments
-            List<DebugStep> logs = [];
+            List<DebugStep> logs = new List<DebugStep>();
 
             //perform the query raw
             var result = await _elasticSearchService.SearchSegmentsAsync(segmentSearch);
