@@ -8,6 +8,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Nest;
 using TiktokenSharp;
+using static AzureAiPlayground.Pages.ViewModels.ExploreDocumentSearchViewModel;
 
 namespace AzureAiPlayground.Pages.ViewModels;
 
@@ -303,7 +304,12 @@ keywords: ";
         Logs.AddLog("GPT3.5 result - keyword search from question", result.Dump());
 
         //now that I have keyword I can proceed with the search.
-        await SearchViewModel.SearchKeyword(result.Content, CurrentDocument!.Document.Id);
+        var queries = new[]
+        {
+            new BoostedQuery(question, 1),
+            new BoostedQuery(result.Content, 10)
+        };
+        await SearchViewModel.SearchKeyword(queries, CurrentDocument!.Document.Id);
     }
 
     #endregion

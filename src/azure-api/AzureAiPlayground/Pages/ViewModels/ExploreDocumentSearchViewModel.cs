@@ -34,41 +34,63 @@ public class ExploreDocumentSearchViewModel
 
     internal Task SearchKeyword(string keywordSearch, string? documentId)
     {
-        return SearchInAtlas(keywordSearch, documentId);
+        return SearchInAtlas(new[] { new BoostedQuery(keywordSearch, 1)}, documentId);
     }
 
-    private async Task SearchInAtlas(string keywordSearch, string? documentId)
+    internal Task SearchKeyword(IReadOnlyCollection<BoostedQuery> queries, string? documentId)
     {
-        var searchStage = new BsonDocument
-        {
-            {
-                "$search", new BsonDocument
+        return SearchInAtlas(queries, documentId);
+    }
+
+    private async Task SearchInAtlas(IReadOnlyCollection<BoostedQuery> queries, string? documentId)
+    {
+        var innerSearchDocuments = queries
+            .Select(q => new BsonDocument
                 {
-                    { "index", "segments" },
                     {
-                        "queryString", new BsonDocument
+                        "text", new BsonDocument
                         {
-                            { "query", keywordSearch },
-                            { "defaultPath", "Content" }
+                            { "query", q.Query },
+                            { "path", "Content" },
+                            { "score" , new BsonDocument
+                                {
+                                    { "boost", new BsonDocument
+                                        {
+                                            { "value", q.Boost }
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        //"text", new BsonDocument
-                        //{
-                        //    { "query", keywordSearch },
-                        //    { "path", "Content" }
-                        //}
-                    },
+                    }
+                })
+            .ToArray();
+        var searchStage = new BsonDocument
+            {
+                {
+                    "$search", new BsonDocument
                     {
-                        "highlight", new BsonDocument
+                        { "index", "segments" },
                         {
-                            { "path", "Content" }
+                            "compound", new BsonDocument
+                            {
+                                {
+                                    "should", new BsonArray(innerSearchDocuments)
+                                }
+                            }
+                        },
+                        {
+                            "highlight", new BsonDocument
+                            {
+                                { "path", "Content" }
+                            }
+                        },
+                        {
+                            "scoreDetails" , true
                         }
-                    },
-                    {
-                        "scoreDetails" , true
                     }
                 }
-            }
-        };
+            };
 
         var projectStage = new BsonDocument
         {
@@ -163,4 +185,6 @@ public class ExploreDocumentSearchViewModel
     {
         public Boolean ShowDetail { get; set; } = false;
     }
+
+    public record BoostedQuery(string Query, double Boost);
 }
