@@ -29,7 +29,7 @@ public class ExploreDocumentViewModel
         var url = new MongoUrl(documentsConfig.CurrentValue.MongoUrl);
         var settings = MongoClientSettings.FromUrl(url);
         var client = new MongoClient(settings);
-        var mongoDatabase = client.GetDatabase("DocSampleV1");
+        var mongoDatabase = client.GetDatabase(documentsConfig.CurrentValue.DatabaseName);
 
         _docCollection = mongoDatabase.GetCollection<SingleDocument>("SingleDocument");
         _pagesCollection = mongoDatabase.GetCollection<SingleDocumentPage>("SingleDocumentPages");

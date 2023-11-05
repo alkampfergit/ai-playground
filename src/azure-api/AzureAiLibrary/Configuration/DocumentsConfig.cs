@@ -3,6 +3,8 @@
     public class DocumentsConfig
     {
         public string MongoUrl { get; set; } = null!;
+        
+        public string DatabaseName { get; set; } = null!;
 
         public string ElasticUrl { get; set; } = null!;
         public string Tika { get; set; } = null!;
