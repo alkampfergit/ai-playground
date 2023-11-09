@@ -97,6 +97,7 @@ public class ExploreDocumentViewModel
         {
             page.Page.TokenCount = _tikTokTokenizer.Encode(page.Page.Content).Count;
         }
+
         await SaveCurrentDocumentInMongoDb();
     }
 
@@ -251,12 +252,24 @@ Question: {Question}";
         Logs.AddLog("GPT3.5 result - question/answer", result.Dump());
     }
 
+    public async Task BetterQuery()
+    {
+        if (CurrentDocument == null) return;
+        if (string.IsNullOrEmpty(Question)) return;
+
+        Logs.Clear();
+
+        await PerformBetterKeywordSearchFromQuestion(Question);
+        await PerformQuestionAnswering();
+    }
+
     public async Task DoKeywordPlusQuestionSearchWithDocumentExpansion()
     {
         if (CurrentDocument == null) return;
         if (string.IsNullOrEmpty(Question)) return;
 
         Logs.Clear();
+
         //Now we need to perform a double step operation.
         if (string.IsNullOrEmpty(KeywordSearch))
         {
@@ -269,6 +282,11 @@ Question: {Question}";
             await SearchViewModel.SearchKeyword(KeywordSearch, CurrentDocument.Document.Id);
         }
 
+        await PerformQuestionAnswering();
+    }
+
+    private async Task PerformQuestionAnswering()
+    {
         //if we really have some keyword we need just to go and ask the question to the chatbot using
         //first X results as context
         var context = SearchViewModel.SegmentsQueryResults
@@ -308,6 +326,20 @@ keywords: ";
         {
             new BoostedQuery(question, 1),
             new BoostedQuery(result.Content, 10)
+        };
+        await SearchViewModel.SearchKeyword(queries, CurrentDocument!.Document.Id);
+    }
+
+    private async Task PerformBetterKeywordSearchFromQuestion(string question)
+    {
+        //now that I have keyword I can proceed with the search.
+        var queries = new[]
+        {
+            new BoostedQuery(question, 1),
+            new BoostedQuery(question, 2, Path: "Content")
+            {
+                Multi = "en"
+            }
         };
         await SearchViewModel.SearchKeyword(queries, CurrentDocument!.Document.Id);
     }

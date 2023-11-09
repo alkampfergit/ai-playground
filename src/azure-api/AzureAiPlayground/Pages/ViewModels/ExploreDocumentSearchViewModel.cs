@@ -51,7 +51,7 @@ public class ExploreDocumentSearchViewModel
                         "text", new BsonDocument
                         {
                             { "query", q.Query },
-                            { "path", "Content" },
+                            { "path", GetPath(q) },
                             { "score" , new BsonDocument
                                 {
                                     { "boost", new BsonDocument
@@ -131,6 +131,22 @@ public class ExploreDocumentSearchViewModel
             .ToList();
     }
 
+    private BsonValue GetPath(BoostedQuery boostedQuery)
+    {
+        if (!string.IsNullOrEmpty(boostedQuery.Multi))
+        {
+            //we have multi query we need to return a complex bson object
+            return new BsonDocument
+            {
+                { "path", boostedQuery.Path },
+                { "multi", boostedQuery.Multi }
+            };
+        }
+        
+        //Standard query with a single field
+        return boostedQuery.Path;
+    }
+
     //private async Task SearchInElasticsearch()
     //{
     //    //simple elastic search query
@@ -186,5 +202,8 @@ public class ExploreDocumentSearchViewModel
         public Boolean ShowDetail { get; set; } = false;
     }
 
-    public record BoostedQuery(string Query, double Boost);
+    public record BoostedQuery(string Query, double Boost, string Path = "Content")
+    {
+        public string? Multi { get; init; }
+    }
 }

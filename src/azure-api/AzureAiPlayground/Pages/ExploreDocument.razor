@@ -15,7 +15,7 @@
             <MudGrid>
                 <MudItem xs="12" md="6">
                     <!-- Use the desired column sizes here -->
-                    <MudTextField @bind-Value="@FilePathToImport" Label="Path" />
+                    <MudTextField @bind-Value="@FilePathToImport" Label="Path"/>
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <!-- Use the desired column sizes here -->
@@ -32,13 +32,14 @@
             <MudGrid>
                 <MudItem xs="12" md="6">
                     <!-- Use the desired column sizes here -->
-                    <MudTextField @bind-Value="@ViewModel.KeywordSearch" Label="Keyword search" />
-                    <MudTextField @bind-Value="@ViewModel.Question" Multiline="true" Label="Question" />
+                    <MudTextField @bind-Value="@ViewModel.KeywordSearch" Label="Keyword search"/>
+                    <MudTextField @bind-Value="@ViewModel.Question" Multiline="true" Label="Question"/>
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <!-- Use the desired column sizes here -->
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordSearch">Keyword search</MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordPlusQuestionSearch">Question</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.BetterQuery">BetterQuery</MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.DoKeywordPlusQuestionSearchWithDocumentExpansion">QuestionExpansion</MudButton>
                 </MudItem>
             </MudGrid>
@@ -162,7 +163,7 @@
             </MudTabPanel>
             <MudTabPanel Text="Debug">
                 <MudText>Debug operations</MudText>
-               <MudTable T="DebugViewModelLog"
+                <MudTable T="DebugViewModelLog"
                           Items="@(ViewModel.Logs.Logs)"
                           RowClassFunc="@LogSelectedRowClassFunc"
                           OnRowClick="LogRowClickEvent">
@@ -175,14 +176,14 @@
                         <MudTd DataLabel="Log">@context.Header</MudTd>
                     </RowTemplate>
                     <ChildRowContent>
-                         @if (context.ShowDetail)
+                        @if (context.ShowDetail)
                         {
                             <pre>
                                 @context.Detail
                             </pre>
                         }
                     </ChildRowContent>
-                </MudTable> 
+                </MudTable>
             </MudTabPanel>
 
         </MudTabs>
