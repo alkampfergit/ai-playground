@@ -112,6 +112,16 @@ public class ChatClient
         var responseBody = await response.Content.ReadAsStringAsync();
         var chatResponse = JsonSerializer.Deserialize<ApiResponse>(responseBody)!;
 
-        return chatResponse.Choices[0].Message;
+        var message = chatResponse.Choices[0].Message;
+
+        if (!String.IsNullOrEmpty(message.Content))
+        {
+            message.Content = Regex.Unescape(message.Content);
+        }
+        if (!String.IsNullOrEmpty(message.FunctionCall?.Arguments))
+        {
+            message.FunctionCall.Arguments = Regex.Unescape(message.FunctionCall.Arguments);
+        }
+        return message;
     }
 }

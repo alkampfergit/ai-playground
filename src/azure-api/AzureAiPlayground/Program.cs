@@ -4,6 +4,7 @@ using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.Jobs;
 using AzureAiLibrary.Documents.Support;
 using AzureAiLibrary.Helpers;
+using AzureAiPlayground.Agents;
 using AzureAiPlayground.Pages.ViewModels;
 using AzureAiPlayground.Support;
 using MudBlazor;
@@ -23,6 +24,7 @@ builder.Configuration.ConfigureOverrideFile();
 var chatConfig = builder.Services.ConfigureSetting<ChatConfig>(builder.Configuration, "chatConfig");
 var azureOpenAiConfiguration = builder.Services.ConfigureSetting<AzureOpenAiConfiguration>(builder.Configuration, "AzureOpenAiConfiguration");
 var documentsConfiguration = builder.Services.ConfigureSetting<DocumentsConfig>(builder.Configuration, "Documents");
+var jarvisConfiguration = builder.Services.ConfigureSetting<JarvisConfig>(builder.Configuration, "Jarvis");
 
 // Add services to the container.
 builder.Services.AddRazorPages();
@@ -37,6 +39,7 @@ var esservice = new ElasticSearchService(new Uri(documentsConfiguration.ElasticU
 builder.Services.AddSingleton(esservice);
 builder.Services.AddSingleton<ITemplateManager, DefaultTemplateManager>();
 builder.Services.AddTransient<ChatViewModel>();
+builder.Services.AddTransient<JarvisApiCaller>();
 
 builder.Services.AddLogging(cfg => cfg.AddSerilog());
 
@@ -51,12 +54,21 @@ foreach (var config in azureOpenAiConfiguration.Endpoints)
         client.BaseAddress = new Uri(config.BaseAddress);
         client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
     });
-
-    builder.Services.AddHttpClient("python_embeddings", client =>
-    {
-        client.BaseAddress = new Uri(documentsConfiguration.PythonTokenizerFlaskUrl);
-    });
 }
+
+builder.Services.AddHttpClient("python_embeddings", client =>
+{
+    client.BaseAddress = new Uri(documentsConfiguration.PythonTokenizerFlaskUrl);
+});
+
+builder.Services.AddHttpClient("jarvis", client =>
+{
+    client.BaseAddress = new Uri(jarvisConfiguration.BaseUrl);
+    client.DefaultRequestHeaders.Add("jarvis-auth-token", jarvisConfiguration.AccessToken);
+});
+
+//Register all agents
+builder.Services.AddSingleton<IAgent, ApplyRuleAgent>();
 
 builder.Services.AddTransient<ChatClient>();
 //builder.Services.AddTransient(provider =>

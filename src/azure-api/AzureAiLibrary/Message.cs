@@ -83,6 +83,10 @@ public class Message
 
     [JsonPropertyName("content")] public string Content { get; set; }  = null!;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("function_call")] 
+    public FunctionCall FunctionCall { get; set; } = null!;
+
     public ChatRole GetChatRole()
     {
         if ("system".Equals(Role, StringComparison.OrdinalIgnoreCase))

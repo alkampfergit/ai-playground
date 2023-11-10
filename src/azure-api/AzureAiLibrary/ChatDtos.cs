@@ -1,7 +1,6 @@
-using System.Collections.Generic;
+using AzureAiLibrary.Helpers;
 using System.Text;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
 
 namespace AzureAiLibrary;
 
@@ -22,6 +21,12 @@ public class ApiPayload
 
     [JsonPropertyName("stop")] public string? Stop { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("functions")] public OpenAiFunctionDefinition[] Functions { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("function_call")] public object FunctionsCall { get; set; }
+
     public string Dump()
     {
         StringBuilder sb = new StringBuilder();
@@ -41,13 +46,23 @@ public class ApiPayload
     }
 }
 
+public class CallSpecificFunction
+{
+    public CallSpecificFunction(string name)
+    {
+        Name = name;
+    }
+
+    [JsonPropertyName("name")] public string Name { get; set; }
+}
+
 public class ApiResponse
 {
-    [JsonPropertyName("id")] public string Id { get; set; }  = null!;
+    [JsonPropertyName("id")] public string Id { get; set; } = null!;
 
-    [JsonPropertyName("object")] public string Object { get; set; }  = null!;
+    [JsonPropertyName("object")] public string Object { get; set; } = null!;
 
-    [JsonPropertyName("created")] public long Created { get; set; } 
+    [JsonPropertyName("created")] public long Created { get; set; }
 
     [JsonPropertyName("model")] public string Model { get; set; } = null!;
 
@@ -63,6 +78,14 @@ public class Choice
     [JsonPropertyName("finish_reason")] public string FinishReason { get; set; } = null!;
 
     [JsonPropertyName("message")] public Message Message { get; set; } = null!;
+}
+
+public class FunctionCall
+{
+    // name and argumetns properties
+    [JsonPropertyName("name")] public String Name { get; set; } = null!;
+
+    [JsonPropertyName("arguments")] public String Arguments { get; set; } = null!;
 }
 
 public class Usage
