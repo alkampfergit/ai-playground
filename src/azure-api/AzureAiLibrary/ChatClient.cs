@@ -31,29 +31,34 @@ public class ChatClient
         {
             throw new Exception("Error in configuration - no endpoint found for endpoint name: " + deployName);
         }
-
+        
+        var apiKey = endpoint.GetApiKey();
         OpenAIClient client = new OpenAIClient(
             new Uri(endpoint.BaseAddress),
-            new AzureKeyCredential(Environment.GetEnvironmentVariable("AI_KEY")));
+            new AzureKeyCredential(apiKey));
 
         var options = new ChatCompletionsOptions();
         foreach (var message in chatRequest.Messages)
         {
-            options.Messages.Add(new ChatMessage(message.GetChatRole(), message.Content));
+            if (message.GetChatRole() == ChatRole.Assistant)
+            {
+                options.Messages.Add(new ChatRequestAssistantMessage(message.Content));
+            }
+            else
+            {
+                options.Messages.Add(new ChatRequestUserMessage( message.Content));
+            }
         }
 
         options.Temperature = (float?)chatRequest.Temperature;
         options.MaxTokens = chatRequest.MaxTokens;
         options.FrequencyPenalty = chatRequest.PresencePenalty;
         options.PresencePenalty = chatRequest.PresencePenalty;
+        options.DeploymentName = endpoint.Name;
 
         // ### If streaming is selected
-        Response<StreamingChatCompletions> response = await client.GetChatCompletionsStreamingAsync(
-            deploymentOrModelName: endpoint.Name,
-            options);
-
-        StreamingChatCompletions streamingChatCompletions = response.Value;
-        return new Message(streamingChatCompletions);
+        var response = await client.GetChatCompletionsStreamingAsync(options);
+        return new Message(response);
     }
 
     public Task<Message> SendMessageAsync(

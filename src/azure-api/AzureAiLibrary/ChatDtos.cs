@@ -97,3 +97,24 @@ public class Usage
 
     [JsonPropertyName("total_tokens")] public int TotalTokens { get; set; }
 }
+
+public class ToolCall
+{
+    [JsonPropertyName("function")]
+    public ToolCallFunction Function { get; set; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; }
+
+    [JsonPropertyName("id")]
+    public string Id { get; set; }
+}
+
+public class ToolCallFunction
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; }
+
+    [JsonPropertyName("arguments")]
+    public string Arguments { get; set; }
+}

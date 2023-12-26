@@ -4,11 +4,13 @@ using AzureAiLibrary.Documents;
 using AzureAiLibrary.Documents.Jobs;
 using AzureAiLibrary.Documents.Support;
 using AzureAiLibrary.Helpers;
+using AzureAiLibrary.Helpers.LogHelpers;
 using AzureAiPlayground.Agents;
 using AzureAiPlayground.Pages.ViewModels;
 using AzureAiPlayground.Support;
 using MudBlazor;
 using MudBlazor.Services;
+using Nest;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,12 +41,19 @@ var esservice = new ElasticSearchService(new Uri(documentsConfiguration.ElasticU
 builder.Services.AddSingleton(esservice);
 builder.Services.AddSingleton<ITemplateManager, DefaultTemplateManager>();
 builder.Services.AddTransient<ChatViewModel>();
+builder.Services.AddTransient<SemanticKernelViewModel>();
 builder.Services.AddTransient<JarvisApiCaller>();
+builder.Services.AddSingleton<DiagnoseHelper>();
 
 builder.Services.AddLogging(cfg => cfg.AddSerilog());
 
 //Configure everything related to documents.
 ConfigHelper.ConfigureDocumentsSection(builder.Services, builder.Configuration);
+
+//then Semantic Kernel
+var loggingProvider = new DumpLoggingProvider();
+builder.Services.AddSingleton<DumpLoggingProvider>(loggingProvider);
+builder.Services.ConfigureSemanticKernel(azureOpenAiConfiguration, loggingProvider);
 
 //loggerFactory.AddSerilog(); //TODO: Do not remmeber where to put this with new initialization
 foreach (var config in azureOpenAiConfiguration.Endpoints)
@@ -52,7 +61,8 @@ foreach (var config in azureOpenAiConfiguration.Endpoints)
     builder.Services.AddHttpClient(config.Name, client =>
     {
         client.BaseAddress = new Uri(config.BaseAddress);
-        client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
+        var apiKey = config.GetApiKey();
+        client.DefaultRequestHeaders.Add("api-key", apiKey);
     });
 }
 

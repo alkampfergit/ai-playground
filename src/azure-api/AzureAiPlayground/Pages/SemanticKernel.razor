@@ -1,0 +1,87 @@
+@page "/semantickernel"
+@inherits ViewModels.SemanticKernelPage
+
+@inject NavigationManager _navManager;
+
+<h3>Semantic Kernel</h3>
+
+
+
+<MudContainer Style="max-width:  margin: auto;">
+    <MudCard>
+        <MudCardContent>
+            <h2>Ask Copilot </h2>
+            <div style="display: flex; align-items: center;">
+                <MudTextField @bind-Value="@ViewModel.Question" Label="Question" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.PerformQuestion">Do Question</MudButton>
+            </div>
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard hidden="@(ViewModel.AnswerIsEmpty)">
+        <MudCardContent>
+            <h2>Answer </h2>
+            <MudTextField Lines="10" @bind-Value="@ViewModel.Answer" Label="Answer" />
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard hidden="@(ViewModel.Diagnostic == null)">
+        <MudCardContent>
+            <MudText>Diagnostics</MudText>
+            <MudTable T="AzureAiPlayground.Pages.ViewModels.StepViewModel"
+                      Items="@(ViewModel.Steps)"
+                      @ref="StepsTable"
+                      RowClassFunc="@SelectedRowClassFunc"
+                      OnRowClick="RowClickEvent">
+                <HeaderContent>
+                    <MudTh>Model</MudTh>
+                    <MudTh>Prompt</MudTh>
+                    <MudTh>AnswerType</MudTh>
+                    <MudTh>FunctionCall</MudTh>
+                    <MudTh>Tokens</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Step.Model</MudTd>
+                    <MudTd>@context.Step.Prompt</MudTd>
+                    <MudTd>@context.Step.AnswerType</MudTd>
+                    <MudTd>@context.Step.FunctionCall</MudTd>
+                    <MudTd>@context.Step.TotalTokens</MudTd>
+                </RowTemplate>
+                <ChildRowContent>
+                    @if (context.Selected)
+                    {
+                        <MudTr>
+                            <td colspan="4">
+                                <MudCard Elevation="0">
+                                    <MudCardHeader>
+                                        <CardHeaderContent>
+                                            <MudText Typo="Typo.body1">Call Details</MudText>
+                                        </CardHeaderContent>
+                                    </MudCardHeader>
+                                    <MudCardContent Class="pa-0">
+                                        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                                            <MudTabPanel Text="Raw Request">
+                                                <pre>@context.Step.FullRequest</pre>
+                                            </MudTabPanel>
+
+                                            <MudTabPanel Text="Raw Response">
+                                                <pre>@context.Step.FullResponse</pre>
+                                            </MudTabPanel>
+
+                                            <MudTabPanel Text="Tool Call parameters">
+                                                <pre>@context.Step.FunctionArguments</pre>
+                                            </MudTabPanel>
+                                        </MudTabs>
+                                    </MudCardContent>
+                                </MudCard>
+                            </td>
+                        </MudTr>
+                    }
+                </ChildRowContent>
+            </MudTable>
+        </MudCardContent>
+    </MudCard>
+
+</MudContainer>
+
+
