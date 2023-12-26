@@ -52,7 +52,8 @@ foreach (var config in azureOpenAiConfiguration.Endpoints)
     builder.Services.AddHttpClient(config.Name, client =>
     {
         client.BaseAddress = new Uri(config.BaseAddress);
-        client.DefaultRequestHeaders.Add("api-key", Environment.GetEnvironmentVariable("AI_KEY"));
+        var apiKey = config.GetApiKey();
+        client.DefaultRequestHeaders.Add("api-key", apiKey);
     });
 }
 

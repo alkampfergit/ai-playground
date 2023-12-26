@@ -6,7 +6,7 @@ namespace AzureAiLibrary;
 
 public class Message
 {
-    private readonly StreamingChatCompletions? _streamingChatCompletions;
+    private readonly StreamingResponse<StreamingChatCompletionsUpdate>? _streamingChatCompletions;
 
     public Message(string role, string content)
     {
@@ -19,7 +19,7 @@ public class Message
     {
     }
 
-    public Message(StreamingChatCompletions streamingChatCompletions)
+    public Message(StreamingResponse<StreamingChatCompletionsUpdate> streamingChatCompletions)
     {
         _streamingChatCompletions = streamingChatCompletions;
         Content = "";
@@ -35,17 +35,10 @@ public class Message
             {
                 using (_streamingChatCompletions)
                 {
-                    var streamingChoices = _streamingChatCompletions.GetChoicesStreaming(CancellationToken.None);
-
-                    await foreach (StreamingChatChoice choice in streamingChoices)
+                    await foreach (var update in _streamingChatCompletions)
                     {
-                        var messageEnumerable = choice.GetMessageStreaming();
-                        await foreach (ChatMessage message in messageEnumerable)
-                        {
-                            //update content and signal that the content changed.
-                            Content += message.Content;
-                            OnContentChanged();
-                        }
+                        Content += update.ContentUpdate;
+                        OnContentChanged();
                     }
                 }
             }
@@ -81,10 +74,10 @@ public class Message
 
     [JsonPropertyName("role")] public string Role { get; set; } = null!;
 
-    [JsonPropertyName("content")] public string Content { get; set; }  = null!;
+    [JsonPropertyName("content")] public string Content { get; set; } = null!;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("function_call")] 
+    [JsonPropertyName("function_call")]
     public FunctionCall FunctionCall { get; set; } = null!;
 
     public ChatRole GetChatRole()
