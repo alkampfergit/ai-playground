@@ -70,7 +70,7 @@ public static class ConfigHelper
         var skConfig = configuration.GetSemanticKernelConfiguration();
         //need to grab information about what deployment we want to use for semantic kernel
         kernelBuilder.Services.AddAzureOpenAIChatCompletion(
-            skConfig.Name,
+            skConfig.DeploymentName,
             skConfig.BaseAddress,
             skConfig.GetApiKey());
         

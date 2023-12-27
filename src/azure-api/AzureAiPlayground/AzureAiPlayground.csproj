@@ -41,18 +41,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="SemanticKernel\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Remove="SemanticKernel\plugins\PublishingPlugin\VideoTimelineCreator\skprompt.txt" />
-    <Content Include="SemanticKernel\plugins\PublishingPlugin\VideoTimelineCreator\skprompt.txt">
+    <Content Include="SemanticKernel\Plugins\PublishingPlugin\VideoTimelineCreator\skprompt.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Remove="SemanticKernel\python\transcript_timeline.py" />
     <Content Include="SemanticKernel\python\transcript_timeline.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Remove="SemanticKernel\Prompts\Chat.yml" />
+    <None Include="SemanticKernel\Prompts\Chat.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

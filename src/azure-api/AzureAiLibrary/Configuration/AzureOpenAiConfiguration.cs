@@ -3,6 +3,14 @@
     public record Endpoint
     {
         public string Name { get; set; } = null!;
+        
+        /// <summary>
+        /// To avoid to extract deployment name from the full
+        /// url, Semantic Kernel and other libraries needs only
+        /// base address and deployment name not the full url with
+        /// OpenAI API version.
+        /// </summary>
+        public string DeploymentName { get; set; } = null!;
         public string Url { get; set; } = null!;
         public string BaseAddress { get; set; } = null!;
         
