@@ -32,10 +32,12 @@ namespace AzureAiLibrary.Helpers
         {
         }
 
-        internal IEnumerable<LLMCall> GetLLMCalls()
+        public IEnumerable<LLMCall> GetLLMCalls()
         {
             return _logger.GetLLMCalls();
         }
+
+        public IEnumerable<string> GetLogs() => _logger.GetLogs();
 
         class AccumulatorLogger : ILogger
         {

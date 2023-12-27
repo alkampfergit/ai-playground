@@ -29,6 +29,11 @@
     public record AzureOpenAiConfiguration
     {
         public string Default { get; set; } = null!;
+        
+        /// <summary>
+        /// This specify the configuration that is to be used for SK
+        /// </summary>
+        public string SemanticKernel { get; set; } = null!;
 
         public List<Endpoint> Endpoints { get; set; } = null!;
 
@@ -42,5 +47,7 @@
             return Endpoints
                 .Find(e => e.Name.Equals(endpointName, StringComparison.OrdinalIgnoreCase));
         }
+
+        public Endpoint GetSemanticKernelConfiguration() => GetEndpoint(SemanticKernel)!;
     }
 }

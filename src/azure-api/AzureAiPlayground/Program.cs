@@ -46,6 +46,11 @@ builder.Services.AddLogging(cfg => cfg.AddSerilog());
 //Configure everything related to documents.
 ConfigHelper.ConfigureDocumentsSection(builder.Services, builder.Configuration);
 
+//then Semantic Kernel
+var loggingProvider = new DumpLoggingProvider();
+builder.Services.AddSingleton<DumpLoggingProvider>(loggingProvider);
+builder.Services.ConfigureSemanticKernel(azureOpenAiConfiguration, loggingProvider);
+
 //loggerFactory.AddSerilog(); //TODO: Do not remmeber where to put this with new initialization
 foreach (var config in azureOpenAiConfiguration.Endpoints)
 {
