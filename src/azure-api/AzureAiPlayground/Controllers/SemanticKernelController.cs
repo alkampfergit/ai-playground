@@ -55,9 +55,9 @@ namespace AzureAiPlayground.Controllers
             );
 
             var chatCompletionService = _kernel.GetRequiredService<IChatCompletionService>();
-
-
-
+            
+            DumpLoggingProvider.Instance.StartCorrelation(Guid.NewGuid().ToString());
+            
             ChatHistory chatMessages = new();
             chatMessages.AddUserMessage(message.Question);
             var result = await chatCompletionService.GetChatMessageContentsAsync(

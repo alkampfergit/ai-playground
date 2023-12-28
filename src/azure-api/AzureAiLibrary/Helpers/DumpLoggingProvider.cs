@@ -1,9 +1,12 @@
 ﻿using System.Collections;
+using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.Json;
 using AzureAiLibrary.Helpers.LogHelpers;
 using Microsoft.Extensions.Http.Logging;
 using Microsoft.Extensions.Logging;
+using Nest;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace AzureAiLibrary.Helpers
 {
@@ -12,12 +15,17 @@ namespace AzureAiLibrary.Helpers
         private readonly AccumulatorLogger _logger;
         private RequestBodyLogger _httpRequestBodyLogger;
 
-        private static DumpLoggingProvider Instance;
+        public static DumpLoggingProvider Instance;
 
         public DumpLoggingProvider()
         {
             _logger = new AccumulatorLogger();
             Instance = this;
+        }
+        
+        public void StartCorrelation(string correlationKey)
+        {
+            _logger.CorrelationKey.Value = correlationKey;
         }
 
         public IHttpClientAsyncLogger CreateHttpRequestBodyLogger(ILogger logger) =>
@@ -32,42 +40,57 @@ namespace AzureAiLibrary.Helpers
         {
         }
 
-        public IEnumerable<LLMCall> GetLLMCalls()
+        public IReadOnlyDictionary<string, LlmCallData> GetLLMCalls()
         {
             return _logger.GetLLMCalls();
         }
 
         public IEnumerable<string> GetLogs() => _logger.GetLogs();
 
+        public record LlmCallData(string CorrelationKey, string Prompt, List<LLMCall> LlmCalls);
         class AccumulatorLogger : ILogger
         {
             private readonly List<string> _logs;
-            private readonly List<LLMCall> _llmCalls;
+            private readonly Dictionary<string, LlmCallData> _llmCalls;
 
+            internal AsyncLocal<string> CorrelationKey = new AsyncLocal<string>();
+            
             public AccumulatorLogger()
             {
                 _logs = new List<string>();
-                _llmCalls = new List<LLMCall>();
+                _llmCalls = new Dictionary<string, LlmCallData>();
             }
 
-            public IEnumerable<LLMCall> GetLLMCalls() => _llmCalls; 
+            public IReadOnlyDictionary<string, LlmCallData> GetLLMCalls() => new ReadOnlyDictionary<string, LlmCallData>( _llmCalls); 
 
-            public void AddLLMCall(LLMCall lLMCall)
+            private string GetCorrelationValue() => CorrelationKey.Value ?? "global";
+            public void AddLlmCall(LLMCall llmCall)
             {
-                _llmCalls.Add(lLMCall);
-            }
-
-            internal LLMCall CompleteLLMCall(string correlationId, string function, string arguments, string response)
-            {
-                for (int i = _llmCalls.Count -1; i >= 0; i--)
+                var cv = GetCorrelationValue();
+                if (!_llmCalls.TryGetValue(cv, out var llmCallData))
                 {
-                    var llmCall = _llmCalls[i];
-                    if (llmCall.CorrelationKey == correlationId) 
+                    llmCallData = new LlmCallData(cv, llmCall.Prompt, new List<LLMCall> { llmCall });
+                    _llmCalls[cv] = llmCallData;
+                }
+                llmCallData.LlmCalls.Add(llmCall);
+            }
+
+            internal LLMCall? CompleteLLMCall(string correlationId, string function, string arguments, string response)
+            {
+                var cv = GetCorrelationValue();
+                if (_llmCalls.TryGetValue(cv, out var llmCallData))
+                {
+
+                    for (int i = llmCallData.LlmCalls.Count - 1; i >= 0; i--)
                     {
-                        llmCall.Response = response;
-                        llmCall.ResponseFunctionCall = function;
-                        llmCall.ResponseFunctionCallParameters = arguments;
-                        return llmCall;
+                        var llmCall = llmCallData.LlmCalls[i];
+                        if (llmCall.CorrelationKey == correlationId)
+                        {
+                            llmCall.Response = response;
+                            llmCall.ResponseFunctionCall = function;
+                            llmCall.ResponseFunctionCallParameters = arguments;
+                            return llmCall;
+                        }
                     }
                 }
 
@@ -182,9 +205,10 @@ namespace AzureAiLibrary.Helpers
                     {
                         CorrelationKey = request.Headers.GetValues("x-ms-client-request-id").First(),
                         Prompt = jsonObject.GetProperty("messages").ToString(),
+                        Request = requestContent,
                         PromptFunctions = tools.ToString()
                     };
-                    DumpLoggingProvider.Instance._logger.AddLLMCall(lLMCall);
+                    DumpLoggingProvider.Instance._logger.AddLlmCall(lLMCall);
                 }
                 else
                 {
