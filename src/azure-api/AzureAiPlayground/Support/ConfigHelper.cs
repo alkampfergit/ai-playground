@@ -65,7 +65,8 @@ public static class ConfigHelper
 
         kernelBuilder.Services.ConfigureHttpClientDefaults(c => c
             .AddLogger(s =>
-                loggingProvider.CreateHttpRequestBodyLogger(s.GetRequiredService<ILogger<DumpLoggingProvider>>())));
+                loggingProvider.CreateHttpRequestBodyLogger(
+                    s.GetRequiredService<ILogger<DumpLoggingProvider>>())));
 
         var skConfig = configuration.GetSemanticKernelConfiguration();
         //need to grab information about what deployment we want to use for semantic kernel

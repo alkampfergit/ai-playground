@@ -33,6 +33,7 @@ public class SemanticKernelViewModel
     public async Task PerformQuestion()
     {
         Answer = "";
+        Steps = new();
         if (String.IsNullOrEmpty(Question)) return;
 
         OpenAIPromptExecutionSettings openAiPromptExecutionSettings = new()

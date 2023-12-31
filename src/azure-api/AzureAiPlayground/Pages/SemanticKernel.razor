@@ -3,14 +3,12 @@
 
 @inject NavigationManager _navManager;
 
-<h3>Semantic Kernel</h3>
-
-
+<h2>Semantic Kernel</h2>
 
 <MudContainer Style="max-width:  margin: auto;">
     <MudCard>
         <MudCardContent>
-            <h2>Ask Copilot </h2>
+            <h3>Ask Copilot </h3>
             <div style="display: flex; align-items: center;">
                 <MudTextField @bind-Value="@ViewModel.Question" Label="Question" />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ViewModel.PerformQuestion">Do Question</MudButton>
@@ -20,14 +18,50 @@
 
     <MudCard hidden="@(ViewModel.AnswerIsEmpty)">
         <MudCardContent>
-            <h2>Answer </h2>
+            <h3>Answer </h3>
             <MudTextField Lines="10" @bind-Value="@ViewModel.Answer" Label="Answer" />
         </MudCardContent>
     </MudCard>
 
     <MudCard hidden="@(ViewModel.Diagnostic == null)">
         <MudCardContent>
+            <h5>Total Tokens </h5>
+            <MudTable T="AzureAiLibrary.Helpers.LogHelpers.ModelUsedTokens"
+                      Items="@(ViewModel.Diagnostic?.TotalUsedTokens ?? Array.Empty<AzureAiLibrary.Helpers.LogHelpers.ModelUsedTokens>())">
+                <HeaderContent>
+                    <MudTh>Model</MudTh>
+                    <MudTh>Tokens</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Model</MudTd>
+                    <MudTd>@context.TotalUsedTokens</MudTd>
+                </RowTemplate>
+            </MudTable> 
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard hidden="@(ViewModel.Diagnostic == null)">
+        <MudCardContent>
+           
+            <h5>Total Prompt Tokens </h5>
+            <MudTable T="AzureAiLibrary.Helpers.LogHelpers.ModelUsedTokens"
+                      Items="@(ViewModel.Diagnostic?.TotalPromptTokens ?? Array.Empty<AzureAiLibrary.Helpers.LogHelpers.ModelUsedTokens>())">
+                <HeaderContent>
+                    <MudTh>Model</MudTh>
+                    <MudTh>Tokens</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Model</MudTd>
+                    <MudTd>@context.TotalUsedTokens</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard hidden="@(ViewModel.Diagnostic == null)">
+        <MudCardContent>
             <MudText>Diagnostics</MudText>
+
             <MudTable T="AzureAiPlayground.Pages.ViewModels.StepViewModel"
                       Items="@(ViewModel.Steps)"
                       @ref="StepsTable"
