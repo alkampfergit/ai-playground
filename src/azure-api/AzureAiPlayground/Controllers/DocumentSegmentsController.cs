@@ -156,7 +156,7 @@ Context:
 
 Question: {dto.Message}";
 
-            const string systemMessage = "You are a chatbot that will answer questions based on a context included in the prompt. You will never user your memory to answer the question.";
+            const string systemMessage = "You are a chatbot that will answer questions based on a context included in the prompt. You will never use your memory to answer the question.";
             ApiPayload payload = CreateBasePayload(
                 systemMessage,
                 chatQuestion);
@@ -352,7 +352,7 @@ keywords: ";
                 new Message { Role = "system", Content = systemMessage },
                 new Message { Role = "user", Content = chatQuestion }
             },
-                MaxTokens = 500,
+                MaxTokens = 3000,
                 Temperature = 0.2,
                 FrequencyPenalty = 1,
                 PresencePenalty = 2,
