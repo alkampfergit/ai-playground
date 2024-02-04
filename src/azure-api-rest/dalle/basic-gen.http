@@ -1,0 +1,10 @@
+POST {{dalleurl}}
+api-key: {{apikey}}
+Content-Type: application/json
+
+{
+    "prompt": "An image of a vector database, the image should make emphasys on the vector aspect of the database. The image should be in high definition.",
+    "n": 1,
+    "size": "1792x1024",
+    "quality" : "hd"
+}
