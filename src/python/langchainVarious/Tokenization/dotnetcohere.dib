@@ -1,0 +1,117 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"languageName":"csharp","name":"csharp"}]}}
+
+#!csharp
+
+// install required packages
+#r "nuget: Microsoft.ML.Tokenizers, 0.21.1"
+
+#!csharp
+
+// Now download the json tokenizer from cohere "https://storage.googleapis.com/cohere-public/tokenizers/command-r-plus.json" locally
+
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
+
+var url = "https://storage.googleapis.com/cohere-public/tokenizers/command-r-plus.json";
+var localPath = "command-r-plus.json";
+
+using (var client = new HttpClient())
+{
+    var response = await client.GetAsync(url);
+    response.EnsureSuccessStatusCode();
+    var content = await response.Content.ReadAsStreamAsync();
+    using (var fileStream = File.Create(localPath))
+    {
+        content.Seek(0, SeekOrigin.Begin);
+        content.CopyTo(fileStream);
+    }
+}
+
+#!csharp
+
+// now read the json file, locate model.vocab node and then extract in a new file. 
+// use system.text.json to parse the json file
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+string jsonString = File.ReadAllText(localPath);
+
+string outputFilePath = "vocab.json";
+string mergesOutputFilePath = "merges.txt";
+using (JsonDocument document = JsonDocument.Parse(jsonString))
+{
+    // Locate the model.vocab node
+    if (document.RootElement.TryGetProperty("model", out JsonElement modelElement) &&
+        modelElement.TryGetProperty("vocab", out JsonElement vocabElement))
+    {
+        // Convert the vocab element to a JsonNode
+        JsonNode vocabNode = JsonNode.Parse(vocabElement.GetRawText());
+
+        // Configure JsonSerializerOptions to not escape non-ASCII characters
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        // Write the node to a new file
+        File.WriteAllText(outputFilePath, vocabNode.ToJsonString(options));
+
+        Console.WriteLine("Vocab node has been extracted to " + outputFilePath);
+    }
+    else
+    {
+        Console.WriteLine("model.vocab node not found in the JSON file.");
+    }
+
+    // now extract the merges
+    if (document.RootElement.TryGetProperty("model", out modelElement) &&
+        modelElement.TryGetProperty("merges", out JsonElement mergesElement) &&
+        mergesElement.ValueKind == JsonValueKind.Array)
+    {
+        using (StreamWriter writer = new StreamWriter(mergesOutputFilePath))
+        {
+            // Iterate over the array elements
+            foreach (JsonElement merge in mergesElement.EnumerateArray())
+            {
+                // Write each element to the file without quotes
+                writer.WriteLine(merge.GetString());
+            }
+        }
+
+        Console.WriteLine("Merges node has been extracted to " + mergesOutputFilePath);
+    }
+    else
+    {
+        Console.WriteLine("model.nerges node not found in the JSON file.");
+    }
+}
+
+#!csharp
+
+using Microsoft.ML.Tokenizers;
+
+// Create the BPE tokenizer from the JSON content
+var bpeTokenizer = new Bpe("vocab.json", "merges.txt");
+
+// Example usage - tokenize a sample text
+string text = "Now I'm using CommandR+ tokenizer";
+var tokens = bpeTokenizer.Tokenize(text);
+
+//now print the tokens
+foreach (var token in tokens)
+{
+    Console.Write(token.Id);
+    Console.Write(" ");
+}
+Console.WriteLine();
+foreach (var token in tokens)
+{
+    Console.Write(token.Value);
+    Console.Write(" ");
+}
