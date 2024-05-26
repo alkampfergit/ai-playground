@@ -42,7 +42,7 @@ using System.Text.Json.Nodes;
 string jsonString = File.ReadAllText(localPath);
 
 string outputFilePath = "commandrplus.tiktoken";
-Dictionary<string, int> specialTokens = new();
+
 using (JsonDocument document = JsonDocument.Parse(jsonString))
 {
     //First of all we need to find the node called model
@@ -52,12 +52,12 @@ using (JsonDocument document = JsonDocument.Parse(jsonString))
     //now from the model object we got a vocab node with the vocabulary
     JsonElement vocab = model.GetProperty("vocab");
 
-    // //now the node is an object where the key are the token and value is the token Id
-    // //To verify this we can print the very first 10
-    // foreach (var item in vocab.EnumerateObject().Take(10))
-    // {
-    //     Console.WriteLine($"{item.Name}: {item.Value}");
-    // }
+    //now the node is an object where the key are the token and value is the token Id
+    //To verify this we can print the very first 10
+    foreach (var item in vocab.EnumerateObject().Take(10))
+    {
+        Console.WriteLine($"{item.Name}: {item.Value}");
+    }
 
     //now open output file and start writing, fore each item in the vocabulary
     //base64 encoding of the key, followed by a space then the token value
@@ -65,37 +65,11 @@ using (JsonDocument document = JsonDocument.Parse(jsonString))
     {
         foreach (var item in vocab.EnumerateObject())
         {
-            var token = item.Name;
-            //Special case, if the token is "Ġ" it means space
-            token = token.Replace("Ġ", " ");
-            byte[] bytes = Encoding.UTF8.GetBytes(token);
+            byte[] bytes = Encoding.UTF8.GetBytes(item.Name);
             string base64 = Convert.ToBase64String(bytes);
             outputFile.WriteLine($"{base64} {item.Value}");
         }
     }
-    
-    //ok find added_tokens node, this is an array of object with id and content
-    JsonElement addedTokens = root.GetProperty("added_tokens");
-
-    //now for each item in the array, we need to add to the specialTokens dictionary
-    foreach (var item in addedTokens.EnumerateArray())
-    {
-        var id = item.GetProperty("id").GetInt32();
-        var content = item.GetProperty("content").GetString();
-        //only id creater than 255000 are special tokens
-        if (id > 255000)
-        {
-            specialTokens.Add(content, id);
-        }
-    }
-}
-
-#!csharp
-
-//print all special tokens
-foreach (var item in specialTokens)
-{
-    Console.WriteLine($"{item.Key}: {item.Value}");
 }
 
 #!csharp
@@ -104,27 +78,9 @@ foreach (var item in specialTokens)
 using Microsoft.ML.Tokenizers;
 
 var string_to_tokenize = "Now I'm using CommandR+ tokenizer, <|YES_TOKEN|> it's working";
-
+string_to_tokenize = "Now ";
 //this uses the new namespace from microsoft that finally have tiktoken
-
-var tiktoken = new Tiktoken("commandrplus.tiktoken", null, specialTokens: specialTokens);
-//print the special tokens
-Console.WriteLine("Special tokens count: {0}", tiktoken.SpecialTokens.Count);
-
-#!csharp
-
-Console.WriteLine(tiktoken.Encode("<|YES_TOKEN|>", out var _)
-    .Select(x => x.Id.ToString())
-    .Aggregate((x, y) => x + " " + y));
-
-#!csharp
-
-Console.WriteLine(tiktoken.Encode("good <|YES_TOKEN|>", out var _)
-    .Select(x => x.Id.ToString())
-    .Aggregate((x, y) => x + " " + y));
-
-#!csharp
-
+var tiktoken = new Tiktoken("commandrplus.tiktoken", null, null, null);
 var tokens = tiktoken.Encode(string_to_tokenize, out var s);
 
 Console.WriteLine("Tokens count: {0}", tokens.Count);
@@ -134,26 +90,3 @@ foreach (var token in tokens)
     Console.Write(token.Id);
     Console.Write(" ");
 }
-Console.WriteLine();
-foreach (var token in tokens)
-{
-    Console.Write(token.Value);
-    Console.Write("|");
-}
-Console.WriteLine();
-
-//expected output from python code
-int[] expected = {13898, 1767, 6071, 3703, 14646, 57, 18, 158048, 19, 228, 255002, 1894, 1914, 5389};
-//now compare with the result of microsoft tiktoken
-for (int i = 0; i < expected.Length; i++)
-{
-    if (expected[i] != tokens[i].Id)
-    {
-        Console.WriteLine("Error at position {0}, expected {1} but got {2}", i, expected[i], tokens[i].Id);
-    }
-}
-
-#!csharp
-
-// we can directly use token count
-Console.WriteLine(tiktoken.CountTokens(string_to_tokenize));

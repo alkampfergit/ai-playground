@@ -1,0 +1,170 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"languageName":"csharp","name":"csharp"}]}}
+
+#!csharp
+
+// install required packages
+#r "nuget: Microsoft.ML.Tokenizers, 0.22.0-preview.24271.1"
+
+#!csharp
+
+// Now download the json tokenizer from cohere "https://storage.googleapis.com/cohere-public/tokenizers/command-r-plus.json" locally
+
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
+
+var url = "https://storage.googleapis.com/cohere-public/tokenizers/command-r-plus.json";
+var localPath = "command-r-plus.json";
+
+using (var client = new HttpClient())
+{
+    var response = await client.GetAsync(url);
+    response.EnsureSuccessStatusCode();
+    var content = await response.Content.ReadAsStreamAsync();
+    using (var fileStream = File.Create(localPath))
+    {
+        content.Seek(0, SeekOrigin.Begin);
+        content.CopyTo(fileStream);
+    }
+}
+
+#!csharp
+
+// now read the json file, locate model.vocab node and then extract in a new file. 
+// use system.text.json to parse the json file
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+string jsonString = File.ReadAllText(localPath);
+
+string outputFilePath = "vocab.json";
+string mergesOutputFilePath = "merges.txt";
+using (JsonDocument document = JsonDocument.Parse(jsonString))
+{
+    // Locate the model.vocab node
+    if (document.RootElement.TryGetProperty("model", out JsonElement modelElement) &&
+        modelElement.TryGetProperty("vocab", out JsonElement vocabElement))
+    {
+        // Convert the vocab element to a JsonNode
+        var vocabText = vocabElement.GetRawText();
+        JsonNode vocabNode = JsonNode.Parse(vocabText);
+
+        // Configure JsonSerializerOptions to not escape non-ASCII characters
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        // Write the node to a new file
+        File.WriteAllText(outputFilePath, vocabNode.ToJsonString(options));
+
+        Console.WriteLine("Vocab node has been extracted to " + outputFilePath);
+    }
+    else
+    {
+        Console.WriteLine("model.vocab node not found in the JSON file.");
+    }
+
+    // now extract the merges
+    if (document.RootElement.TryGetProperty("model", out modelElement) &&
+        modelElement.TryGetProperty("merges", out JsonElement mergesElement) &&
+        mergesElement.ValueKind == JsonValueKind.Array)
+    {
+        using (StreamWriter writer = new StreamWriter(mergesOutputFilePath))
+        {
+            // Iterate over the array elements
+            foreach (JsonElement merge in mergesElement.EnumerateArray())
+            {
+                // Write each element to the file without quotes
+                writer.WriteLine(merge.GetString());
+            }
+        }
+
+        Console.WriteLine("Merges node has been extracted to " + mergesOutputFilePath);
+    }
+    else
+    {
+        Console.WriteLine("model.nerges node not found in the JSON file.");
+    }
+}
+
+#!csharp
+
+using Microsoft.ML.Tokenizers;
+
+// Create the BPE tokenizer from the JSON content
+var bpeTokenizer = new Bpe("vocab.json", "merges.txt", unknownToken: "<UNK>");
+bpeTokenizer.ContinuingSubwordPrefix = null;
+bpeTokenizer.FuseUnknownTokens = true;
+var tokenizer = new Tokenizer(bpeTokenizer);
+
+// Example usage - tokenize a sample text
+string text = "Now I'm using CommandR+ tokenizer";
+
+// Function to tokenize the text and print the tokens
+void TokenizeAndPrint(string inputText)
+{
+    var tokens = tokenizer.Encode(inputText);
+
+    // Print the token IDs
+    foreach (var id in tokens.Ids)
+    {
+        Console.Write(id);
+        Console.Write(" ");
+    }
+    Console.WriteLine();
+
+    // Print the tokens
+    foreach (var token in tokens.Tokens)
+    {
+        Console.Write(token);
+        Console.Write("|");
+    }
+    Console.WriteLine();
+}
+
+// Call the function with the provided text
+TokenizeAndPrint(text);
+TokenizeAndPrint(text.Replace(" ", "Ġ"));
+
+#!csharp
+
+#r "nuget: SharpToken, 2.0.3"
+
+#!csharp
+
+using SharpToken;
+
+var cl100kBaseEncoding = GptEncoding.GetEncoding("cl100k_base");
+var encoded = cl100kBaseEncoding.Encode("Hello world!");
+//write all tokens
+foreach (var token in encoded)
+{
+    Console.Write(token);
+    Console.Write("[");
+    Console.Write(cl100kBaseEncoding.Decode([token]));
+    Console.Write("] ");
+}
+
+#!csharp
+
+using Microsoft.ML.Tokenizers;
+
+//this uses the new namespace from microsoft that finally have tiktoken
+var tiktoken = new Tiktoken("cl100k_base.tiktoken", null, null, null);
+var tokens = tiktoken.Encode("Hello world!", out var s);
+
+Console.WriteLine(s);
+Console.WriteLine("Tokens count: {0}", tokens.Count);
+
+foreach (var token in tokens)
+{
+    Console.Write(token.Id);
+    Console.Write(" ");
+}

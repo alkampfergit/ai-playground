@@ -12,6 +12,14 @@
 **/.DS_store
 **/.idea
 
+# Tiktoken files
+*.tiktoken
+
+#Special downloaded files
+command-r-plus*
+vocab.json
+merges.txt
+
 # Some virtual env used in the project
 **/deep
 **/myenv
