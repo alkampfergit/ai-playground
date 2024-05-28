@@ -119,7 +119,7 @@ Console.WriteLine(tiktoken.Encode("<|YES_TOKEN|>", out var _)
 
 #!csharp
 
-Console.WriteLine(tiktoken.Encode("good <|YES_TOKEN|>", out var _)
+Console.WriteLine(tiktoken.Encode("good<|YES_TOKEN|>good", out var _)
     .Select(x => x.Id.ToString())
     .Aggregate((x, y) => x + " " + y));
 

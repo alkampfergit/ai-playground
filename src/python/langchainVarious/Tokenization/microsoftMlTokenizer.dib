@@ -1,0 +1,15 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!csharp
+
+#r "nuget: Microsoft.ML.Tokenizers, 0.22.0-preview.24271.1"
+
+#!csharp
+
+using Microsoft.ML.Tokenizers;
+var tokenizer = Tiktoken.CreateTiktokenForModel("gpt-4o");
+
+//Can create tokenizer even for embedding
+var tokenizerEmbedding = Tiktoken.CreateTiktokenForModel("text-embedding-3-small");
