@@ -247,54 +247,105 @@ Console.WriteLine(detokenizedHello);
 
 #!csharp
 
-//now we need to implement the BPE algorithm, single step
-var frequence = new Dictionary<long, int>();
-int higherFrequence = 0;
-long higherFrequencePair = 0;
-for (int i = 0; i < tokenizedText.Count - 2; i++)
+MergeToken FindMostFrequent(List<int> tokenizedText)
 {
-    var pair = CreateLong(tokenizedText[i], tokenizedText[i + 1]);
-    if (!frequence.TryGetValue(pair, out var count))
+    //now we need to implement the BPE algorithm, single step
+    var frequence = new Dictionary<long, int>();
+    int higherFrequence = 0;
+    long higherFrequencePair = 0;
+    for (int i = 0; i < tokenizedText.Count - 2; i++)
     {
-        count = 0;
+        var pair = CreateLong(tokenizedText[i], tokenizedText[i + 1]);
+        if (!frequence.TryGetValue(pair, out var count))
+        {
+            count = 0;
+        }
+        count++;
+        frequence[pair] = count;
+        if (count > higherFrequence)
+        {
+            higherFrequence = count;
+            higherFrequencePair = pair;
+        }
     }
-    count++;
-    frequence[pair] = count;
-    if (count > higherFrequence)
+
+    var (a1, b1) =  SplitLong(higherFrequencePair);
+    var (left, right) = (vocabulary[a1], vocabulary[b1]);
+
+    var tokenId = currentTokenValue++;
+    var newTokenChar = left.Text.Concat(right.Text).ToArray();
+    var newtoken = new MergeToken(tokenId, a1, b1, newTokenChar);
+    vocabulary.Add(tokenId, newtoken);
+    //now add to merge and baseMergedCache
+    AddToBaseMergedCache(newtoken);
+
+    if (!baseMergedCache.TryGetValue(higherFrequencePair, out var list))
     {
-        higherFrequence = count;
-        higherFrequencePair = pair;
+        list = new List<MergeToken>();
+        baseMergedCache.Add(higherFrequencePair, list);
     }
-}
-
-//now we know which is the higher frequence 
-var (a1, b1) = SplitLong(higherFrequencePair);
-
-//now add to merges, create a new token id
-//now get the two tokens
-var a1Char = vocabulary[a1];
-var b1Char = vocabulary[b1];
-var newTokenChar = a1Char.Text.Concat(b1Char.Text).ToArray();
-Console.WriteLine($"Higher frequence pair: {a1},{b1}, [{string.Join("", newTokenChar)}] with {higherFrequence} occurences");
-
-var tokenId = currentTokenValue++;
-var newtoken = new MergeToken(tokenId, a1, b1, newTokenChar);
-vocabulary.Add(tokenId, newtoken);
-//now add to merge and baseMergedCache
-AddToBaseMergedCache(newtoken);
-
-if (!baseMergedCache.TryGetValue(higherFrequencePair, out var list))
-{
-    list = new List<MergeToken>();
-    baseMergedCache.Add(higherFrequencePair, list);
+    return newtoken;
 }
 
 #!csharp
 
-//now we do not have any merge 
+var newToken = FindMostFrequent(tokenizedText);
+
+Console.WriteLine($"Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
+
+#!csharp
+
+//now we have merge 
 string hello = "belle giornate";
 var tokenizedHello = TokenizeText(hello);
 Console.WriteLine(string.Join(" ", tokenizedHello));
 
 var detokenizedHello = DetokenizeText(tokenizedHello);
 Console.WriteLine(detokenizedHello);
+
+#!csharp
+
+int numberOfMerges = 30;
+for (int i = 0; i < numberOfMerges; i++)
+{
+    var tokenizedText = TokenizeText(text);
+    var newToken = FindMostFrequent(tokenizedText);
+    Console.WriteLine($"Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
+}
+
+#!csharp
+
+var pieceOfText = @" E che in ogni argomento debba cercare di scuoprire e di
+esprimere il vero storico e il vero morale, non solo come fine, ma
+come più ampia e perpetua sorgente del bello, giacchè, e nell'uno e
+nell'altro ordine di cose, il falso può bensì dilettare, ma questo
+diletto, questo interesse è distrutto dalla cognizione del vero;";
+var tokenizedPieceOfText = TokenizeText(pieceOfText);
+Console.WriteLine(string.Join(",", tokenizedPieceOfText));
+Console.WriteLine($"Length of the text is {pieceOfText.Length} tokenized is {tokenizedPieceOfText.Count}");
+
+#!csharp
+
+//now print token, one for line and for each token print the text
+
+foreach (var token in tokenizedPieceOfText)
+{
+    var mergetToken = vocabulary[token];
+    Console.WriteLine($"{token} -> {string.Join("", mergetToken.Text)}");
+}
+
+#!csharp
+
+//now tokenize for another 100 rounds
+for (int i = 0; i < 100; i++)
+{
+    var tokenizedText = TokenizeText(text);
+    var newToken = FindMostFrequent(tokenizedText);
+    Console.WriteLine($"Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
+}
+
+#!csharp
+
+var tokenizedPieceOfText = TokenizeText(pieceOfText);
+Console.WriteLine(string.Join(",", tokenizedPieceOfText));
+Console.WriteLine($"Length of the text is {pieceOfText.Length} tokenized is {tokenizedPieceOfText.Count}");
