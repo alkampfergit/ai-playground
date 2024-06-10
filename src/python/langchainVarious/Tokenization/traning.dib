@@ -1,0 +1,300 @@
+#!meta
+
+{"kernelInfo":{"defaultKernelName":"csharp","items":[{"aliases":[],"name":"csharp"}]}}
+
+#!csharp
+
+// install required packages
+#r "nuget: Microsoft.ML.Tokenizers, 0.22.0-preview.24271.1"
+
+#!csharp
+
+// download from the web the file https://www.gutenberg.org/cache/epub/45334/pg45334.txt
+
+using System;
+using System.Net.Http;
+
+// verify if promessisposi.txt file exists, if not download
+if (!System.IO.File.Exists("promessisposi.txt"))
+{
+    var client = new HttpClient();
+    var rawRequest = await client.GetByteArrayAsync(
+        "https://www.gutenberg.org/cache/epub/45334/pg45334.txt");
+
+    var text = System.Text.Encoding.UTF8.GetString(rawRequest);
+
+    // now save in local promessisposi.txt file
+    System.IO.File.WriteAllText("promessisposi.txt", text);
+}
+
+// read the file
+var text = System.IO.File.ReadAllText("promessisposi.txt");
+
+#!csharp
+
+// //create a function that accept two int and create a long moving the second int 
+// //into the upper 32 bits
+long CreateLong(int a, int b)
+{
+    return ((long)a << 32) | b;
+}
+
+//now create the inverse
+(int, int) SplitLong(long l)
+{
+    return ((int)(l >> 32), (int)l);
+}
+
+// var testLong = CreateLong(567,45);
+// var (a,b) = SplitLong(testLong);
+// Console.WriteLine($"a: {a} b: {b}");
+
+// testLong = CreateLong(0,45);
+// (a,b) = SplitLong(testLong);
+// Console.WriteLine($"a: {a} b: {b}");
+
+#!csharp
+
+//now create a class that will hold id of the token, list of tokens sequence (if it is a merge)
+//and finally text representation to come back to text from token id
+record MergeToken(int TokenId, int LeftToken, int RightToken, char[] Text) 
+{
+    /// <summary>
+    /// Get the key that will be used to store the token in the vocabulary
+    /// </summary>
+    public long GetKey() 
+    {
+        if (Text.Length == 1)
+        {
+            return (long) Text[0];
+        }
+        return ((long) Text[1] << 32) | Text[0];
+    }
+}
+
+//the vocabulary is a simple dictionary that keeps track of the tokens
+Dictionary<int, MergeToken> vocabulary = new();
+
+//Basic single char token can be stored in a special cache for quick retrieval
+Dictionary<char, MergeToken> singleCharCache = new();
+
+//to help quickly find the token given a sequence of original base tokens we need to have a 
+//cache that from a long obtained from the sequence of two tokens will return the list of tokens
+//that starts with that sequence
+Dictionary<long, List<MergeToken>> baseMergedCache = new();
+
+#!csharp
+
+//now a convenient function to add token to baseMergedCache
+void AddToBaseMergedCache(MergeToken token)
+{
+    var key = token.GetKey();
+    if (!baseMergedCache.ContainsKey(key))
+    {
+        baseMergedCache[key] = new();
+    }
+    baseMergedCache[key].Add(token);
+}
+
+#!csharp
+
+//Now starts creating the vocabulary from the single chars
+int currentTokenValue = 1;
+foreach (var c in text)
+{
+    if (!singleCharCache.ContainsKey(c))
+    {
+        //this is a basic token is not a merge of any other token so left and right are zero
+        MergeToken token = new(currentTokenValue, 0, 0, [c]);
+        vocabulary.Add(token.TokenId, token);
+        singleCharCache.Add(c, token);
+        AddToBaseMergedCache(token);
+        currentTokenValue++;
+    }
+}
+
+//primt some statistics
+Console.WriteLine($"Number of different chars: {vocabulary.Count}");
+//print all the first 10 chars
+foreach (var c in vocabulary.Values.Take(10))
+{
+    Console.Write($"{c.Text[0]} -> {c.TokenId}, ");
+}
+
+#!csharp
+
+// now we need a routine that will tokenize the text, remember that tokenization
+//is not composed only of single char tokens but also of merged tokens, so the only
+//way to tokenize is to have a reference of the array of char and the position
+MergeToken Tokenize(string text, int position)
+{
+    //we have cache to quickly identify the longest token, last token is a single
+    //token so we do not have to check for merged tokens
+    if (position == text.Length - 1)
+    {
+        return singleCharCache[text[position]];
+    }
+
+    //now we need to get the key corresponding to the two chars
+    var key = ((long) text[position + 1] << 32) | text[position];
+
+    //now we need to check if we have a merged token that starts with the two chars
+    if (baseMergedCache.TryGetValue(key, out var tokens))
+    {
+        //we have a list of merged tokens that starts with the two chars
+        foreach (var token in tokens.OrderByDescending(t => t.Text.Length))
+        {
+            //check if the token is present in the text
+            if (position + token.Text.Length <= text.Length)
+            {
+                //check if the token is present in the text
+                bool found = true;
+                for (int i = 0; i < token.Text.Length; i++)
+                {
+                    if (text[position + i] != token.Text[i])
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found)
+                {
+                    return token;
+                }
+            }
+        }
+    }
+
+    //ok we have a single char token
+    return singleCharCache[text[position]];
+}
+
+#!csharp
+
+//now I need to implement a BPE training algorihtm
+//first step tokenize with the vocab the text
+var tokenizedText = new List<int>();
+
+for (int i = 0; i < text.Length;)
+{
+    var token = Tokenize(text, i);
+    if (token == null)
+    {
+        throw new Exception($"Token at position {i} char {text[i]} not found");
+    }
+    tokenizedText.Add(token.TokenId);
+    i += token.Text.Length;
+}
+
+//print the first 30 tokens in a single line
+Console.WriteLine(string.Join(" ", tokenizedText.Take(30)));
+Console.WriteLine($"length of tokenized text: {tokenizedText.Count}");
+
+//reprint the very first 30 tokens
+foreach (var token in tokenizedText.Take(30))
+{
+    var mergetToken = vocabulary[token];
+    foreach (var c in mergetToken.Text)
+    {
+        Console.Write(c);
+    }
+}
+
+#!csharp
+
+List<int> TokenizeText(string text)
+{
+    var tokenizedText = new List<int>();
+
+    for (int i = 0; i < text.Length;)
+    {
+        var token = Tokenize(text, i);
+        if (token == null)
+        {
+            throw new Exception($"Token at position {i} char {text[i]} not found");
+        }
+        tokenizedText.Add(token.TokenId);
+        i += token.Text.Length;
+    }
+
+    return tokenizedText;
+}
+
+//now inverse function from list of token to text
+string DetokenizeText(List<int> tokens)
+{
+    var text = new StringBuilder(tokens.Count);
+    foreach (var token in tokens)
+    {
+        var mergetToken = vocabulary[token];
+        foreach (var c in mergetToken.Text)
+        {
+            text.Append(c);
+        }
+    }
+    return text.ToString();
+}
+
+#!csharp
+
+//now we do not have any merge 
+string hello = "ciao mondo";
+var tokenizedHello = TokenizeText(hello);
+Console.WriteLine(string.Join(" ", tokenizedHello));
+
+var detokenizedHello = DetokenizeText(tokenizedHello);
+Console.WriteLine(detokenizedHello);
+
+#!csharp
+
+//now we need to implement the BPE algorithm, single step
+var frequence = new Dictionary<long, int>();
+int higherFrequence = 0;
+long higherFrequencePair = 0;
+for (int i = 0; i < tokenizedText.Count - 2; i++)
+{
+    var pair = CreateLong(tokenizedText[i], tokenizedText[i + 1]);
+    if (!frequence.TryGetValue(pair, out var count))
+    {
+        count = 0;
+    }
+    count++;
+    frequence[pair] = count;
+    if (count > higherFrequence)
+    {
+        higherFrequence = count;
+        higherFrequencePair = pair;
+    }
+}
+
+//now we know which is the higher frequence 
+var (a1, b1) = SplitLong(higherFrequencePair);
+
+//now add to merges, create a new token id
+//now get the two tokens
+var a1Char = vocabulary[a1];
+var b1Char = vocabulary[b1];
+var newTokenChar = a1Char.Text.Concat(b1Char.Text).ToArray();
+Console.WriteLine($"Higher frequence pair: {a1},{b1}, [{string.Join("", newTokenChar)}] with {higherFrequence} occurences");
+
+var tokenId = currentTokenValue++;
+var newtoken = new MergeToken(tokenId, a1, b1, newTokenChar);
+vocabulary.Add(tokenId, newtoken);
+//now add to merge and baseMergedCache
+AddToBaseMergedCache(newtoken);
+
+if (!baseMergedCache.TryGetValue(higherFrequencePair, out var list))
+{
+    list = new List<MergeToken>();
+    baseMergedCache.Add(higherFrequencePair, list);
+}
+
+#!csharp
+
+//now we do not have any merge 
+string hello = "belle giornate";
+var tokenizedHello = TokenizeText(hello);
+Console.WriteLine(string.Join(" ", tokenizedHello));
+
+var detokenizedHello = DetokenizeText(tokenizedHello);
+Console.WriteLine(detokenizedHello);
