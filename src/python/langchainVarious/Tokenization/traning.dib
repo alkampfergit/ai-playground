@@ -247,7 +247,7 @@ Console.WriteLine(detokenizedHello);
 
 #!csharp
 
-MergeToken GenerateNextMergeToken(List<int> tokenizedText)
+(MergeToken NewToken, List<int> NewTokenizedText) GenerateNextMergeToken(List<int> tokenizedText)
 {
     //now we need to implement the BPE algorithm, single step
     var frequence = new Dictionary<long, int>();
@@ -284,12 +284,28 @@ MergeToken GenerateNextMergeToken(List<int> tokenizedText)
         list = new List<MergeToken>();
         baseMergedCache.Add(higherFrequencePair, list);
     }
-    return newtoken;
+
+    //now we should update the tokenizedText with the new token, find the pair and replace
+    var newTokenizedText = new List<int>();
+    for (int i = 0; i < tokenizedText.Count - 1; i++)
+    {
+        //check if the pair is the one to be replaced
+        if (tokenizedText[i] == a1 && tokenizedText[i + 1] == b1)
+        {
+            newTokenizedText.Add(tokenId);
+            i++;
+        }
+        else
+        {
+            newTokenizedText.Add(tokenizedText[i]);
+        }
+    }
+    return (newtoken, newTokenizedText);    
 }
 
 #!csharp
 
-var newToken = GenerateNextMergeToken(tokenizedText);
+var (newToken, newTokenizedText) = GenerateNextMergeToken(tokenizedText);
 
 Console.WriteLine($"Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
 
@@ -325,13 +341,19 @@ DumpToken(tokenizedHello);
 
 #!csharp
 
-int numberOfMerges = 30;
-for (int i = 0; i < numberOfMerges; i++)
+void TrainBPE(ref List<int> tokenizedText, int steps)
 {
-    var tokenizedText = TokenizeText(text);
-    var newToken = GenerateNextMergeToken(tokenizedText);
-    Console.WriteLine($"Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
+    for (int i = 0; i < steps; i++)
+    {
+        var (newToken, theNewTokenizedText) = GenerateNextMergeToken(tokenizedText);
+        tokenizedText = theNewTokenizedText;
+        Console.WriteLine($"Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
+    }
 }
+
+#!csharp
+
+TrainBPE(tokenizedText, 30);
 
 #!csharp
 
@@ -346,17 +368,12 @@ Console.WriteLine($"Length of the text is {pieceOfText.Length} tokenized is {tok
 
 #!csharp
 
-DumpToken(tokenizedPieceOfText);
+DumpToken(tokenizedPieceOfText.Take(10).ToList());
 
 #!csharp
 
 //now tokenize for another 100 rounds
-for (int i = 0; i < 100; i++)
-{
-    var tokenizedText = TokenizeText(text);
-    var newToken = GenerateNextMergeToken(tokenizedText);
-    Console.WriteLine($"Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
-}
+TrainBPE(tokenizedPieceOfText, 100);
 
 #!csharp
 
