@@ -397,4 +397,26 @@ DumpToken(tokenizedPieceOfText.Take(20).ToList())
 
 #!csharp
 
-var tokenizedPieceOfText = TokenizeText("This contains some token that are not present in the vocabulary __|");
+var tokenizedPieceOfText = TokenizeText("This contains | some token that are not present in the vocabulary __|");
+DumpToken(tokenizedPieceOfText);
+
+#!csharp
+
+//some special char
+void AddSpecialToken(string specialToken)
+{
+    MergeToken newToken = new (currentTokenValue++, 0, 0, specialToken.ToArray());
+    vocabulary.Add(newToken.TokenId, newToken);
+    AddToBaseMergedCache(newToken);
+}
+
+#!csharp
+
+AddSpecialToken("<|ENDOFSENTENCE|>");
+AddSpecialToken("<|EOS|>");
+AddSpecialToken("<|BOS|>");
+
+#!csharp
+
+var tokenizedSpecial = TokenizeText( "Hello <|ENDOFSENTENCE|> World");
+DumpToken(tokenizedSpecial);
