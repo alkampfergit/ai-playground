@@ -100,6 +100,8 @@ void AddToBaseMergedCache(MergeToken token)
 
 //Now starts creating the vocabulary from the single chars
 int currentTokenValue = 1;
+MergeToken unk = new (currentTokenValue++, 0, 0, "<UNK>".ToArray());
+vocabulary.Add(unk.TokenId, unk);
 foreach (var c in text)
 {
     if (!singleCharCache.ContainsKey(c))
@@ -118,10 +120,19 @@ Console.WriteLine($"Number of different chars: {vocabulary.Count}");
 //print all the first 10 chars
 foreach (var c in vocabulary.Values.Take(10))
 {
-    Console.Write($"{c.Text[0]} -> {c.TokenId}, ");
+    Console.Write($"{string.Join("", c.Text)} -> {c.TokenId}, ");
 }
 
 #!csharp
+
+MergeToken GetSingleCharToken(char c) 
+{
+    if (singleCharCache.TryGetValue(c, out var singleCharToken))
+    {
+        return singleCharToken;
+    }
+    return unk;
+}
 
 // now we need a routine that will tokenize the text, remember that tokenization
 //is not composed only of single char tokens but also of merged tokens, so the only
@@ -132,7 +143,7 @@ MergeToken Tokenize(string text, int position)
     //token so we do not have to check for merged tokens
     if (position == text.Length - 1)
     {
-        return singleCharCache[text[position]];
+        return GetSingleCharToken(text[position]);
     }
 
     //now we need to get the key corresponding to the two chars
@@ -165,8 +176,9 @@ MergeToken Tokenize(string text, int position)
         }
     }
 
-    //ok we have a single char token
-    return singleCharCache[text[position]];
+    //ok we have a single char token or the unk
+    var c = text[position];
+    return GetSingleCharToken(c);
 }
 
 #!csharp
@@ -353,7 +365,7 @@ void TrainBPE(ref List<int> tokenizedText, int steps)
 
 #!csharp
 
-TrainBPE(tokenizedText, 30);
+TrainBPE(ref tokenizedText, 30);
 
 #!csharp
 
@@ -373,7 +385,7 @@ DumpToken(tokenizedPieceOfText.Take(10).ToList());
 #!csharp
 
 //now tokenize for another 100 rounds
-TrainBPE(tokenizedPieceOfText, 100);
+TrainBPE(ref tokenizedText, 100);
 
 #!csharp
 
@@ -381,23 +393,7 @@ var tokenizedPieceOfText = TokenizeText(pieceOfText);
 Console.WriteLine(string.Join(",", tokenizedPieceOfText));
 Console.WriteLine($"Length of the text is {pieceOfText.Length} tokenized is {tokenizedPieceOfText.Count}");
 
-DumpToken(tokenizedPieceOfText)
-
-#!csharp
-
-//now tokenize for another 100 rounds
-for (int i = 0; i < 300; i++)
-{
-    var tokenizedText = TokenizeText(text);
-    var newToken = GenerateNextMergeToken(tokenizedText);
-    Console.WriteLine($"{i} - Higher frequence pair: {newToken.LeftToken},{newToken.RightToken}, [{string.Join("", newToken.Text)}]");
-}
-
-#!csharp
-
-var tokenizedPieceOfText = TokenizeText(pieceOfText);
-Console.WriteLine(string.Join(",", tokenizedPieceOfText));
-Console.WriteLine($"Length of the text is {pieceOfText.Length} tokenized is {tokenizedPieceOfText.Count}");
+DumpToken(tokenizedPieceOfText.Take(20).ToList())
 
 #!csharp
 
