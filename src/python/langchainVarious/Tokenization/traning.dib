@@ -250,7 +250,7 @@ string DetokenizeText(List<int> tokens)
 #!csharp
 
 //now we do not have any merge 
-string hello = "ciao mondo";
+string hello = "belle giornate";
 var tokenizedHello = TokenizeText(hello);
 Console.WriteLine(string.Join(" ", tokenizedHello));
 
@@ -291,11 +291,11 @@ Console.WriteLine(detokenizedHello);
     //now add to merge and baseMergedCache
     AddToBaseMergedCache(newtoken);
 
-    if (!baseMergedCache.TryGetValue(higherFrequencePair, out var list))
+    /*if (!baseMergedCache.TryGetValue(higherFrequencePair, out var list))
     {
         list = new List<MergeToken>();
         baseMergedCache.Add(higherFrequencePair, list);
-    }
+    }*/
 
     //now we should update the tokenizedText with the new token, find the pair and replace
     var newTokenizedText = new List<int>();
@@ -366,6 +366,7 @@ void TrainBPE(ref List<int> tokenizedText, int steps)
 #!csharp
 
 TrainBPE(ref tokenizedText, 30);
+Console.WriteLine($"Lenght of tokenized text {tokenizedText.Count}");
 
 #!csharp
 
@@ -386,6 +387,7 @@ DumpToken(tokenizedPieceOfText.Take(10).ToList());
 
 //now tokenize for another 100 rounds
 TrainBPE(ref tokenizedText, 100);
+Console.WriteLine($"Lenght of tokenized text {tokenizedText.Count}");
 
 #!csharp
 
