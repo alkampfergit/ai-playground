@@ -4,11 +4,6 @@
 
 #!csharp
 
-// install required packages
-#r "nuget: Microsoft.ML.Tokenizers, 0.22.0-preview.24271.1"
-
-#!csharp
-
 // download from the web the file https://www.gutenberg.org/cache/epub/45334/pg45334.txt
 
 using System;
@@ -386,7 +381,7 @@ DumpToken(tokenizedPieceOfText.Take(10).ToList());
 #!csharp
 
 //now tokenize for another 100 rounds
-TrainBPE(ref tokenizedText, 100);
+TrainBPE(ref tokenizedText, 1000);
 Console.WriteLine($"Lenght of tokenized text {tokenizedText.Count}");
 
 #!csharp
