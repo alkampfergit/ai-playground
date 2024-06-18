@@ -143,7 +143,7 @@ rfc3986-validator==0.1.1
 rpds-py==0.10.3
 rsa==4.9
 safetensors==0.3.3
-scikit-learn==1.3.1
+scikit-learn==1.5.0
 scipy==1.11.3
 Send2Trash==1.8.2
 sentence-transformers==2.2.2
