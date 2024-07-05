@@ -11,7 +11,7 @@ backcall==0.2.0
 banal==1.0.6
 beautifulsoup4==4.12.2
 blinker==1.6.2
-certifi==2022.12.7
+certifi==2024.7.4
 charset-normalizer==2.1.1
 click==8.1.5
 cloudpickle==2.2.1
