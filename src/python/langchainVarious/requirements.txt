@@ -42,7 +42,7 @@ google-search-results==2.4.2
 googleapis-common-protos==1.59.1
 greenlet==2.0.2
 grpc-gateway-protoc-gen-openapiv2==0.1.0
-grpcio==1.54.2
+grpcio==1.54.3
 hdfs==2.7.0
 httplib2==0.22.0
 huggingface-hub==0.15.1
