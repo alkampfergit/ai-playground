@@ -124,7 +124,7 @@ pycparser==2.21
 pydantic==2.4.2
 pydantic_core==2.10.1
 Pygments==2.16.1
-pymongo==4.6.0
+pymongo==4.6.3
 pynndescent==0.5.10
 pyparsing==3.1.1
 python-dateutil==2.8.2
