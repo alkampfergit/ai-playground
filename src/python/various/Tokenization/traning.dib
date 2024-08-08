@@ -381,7 +381,7 @@ DumpToken(tokenizedPieceOfText.Take(10).ToList());
 #!csharp
 
 //now tokenize for another 100 rounds
-TrainBPE(ref tokenizedText, 1000);
+TrainBPE(ref tokenizedText, 100);
 Console.WriteLine($"Lenght of tokenized text {tokenizedText.Count}");
 
 #!csharp

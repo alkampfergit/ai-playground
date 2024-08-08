@@ -25,6 +25,7 @@ merges.txt
 **/myenv
 **/langchain
 **/deeplearningai
+**/various/various
 .env
 
 # User-specific files (MonoDevelop/Xamarin Studio)

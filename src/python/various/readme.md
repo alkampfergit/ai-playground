@@ -7,10 +7,10 @@ Some of the files are taken from Pinecone site, on langchain-intro: You can find
 Create a local environment with python, then allow the ipykernel to create a kernel for jupyter notebooks.
 
 ```bash
-python3 -m venv langchain
-source langchain/bin/activate
+python3 -m venv various
+source various/bin/activate
 # For windows you must use the following command to activate the virtual environment
-#  .\langchain\Scripts\activate 
+#  .\various\Scripts\activate 
 ```
 
 you can handle requirements with easy thanks to pip
@@ -24,7 +24,7 @@ Then you can create a kernel for jupyter notebooks using the very same environmn
 
 ```bash
 pip install ipykernel
-python -m ipykernel install --user --name=langchain_experiments
+python -m ipykernel install --user --name=various
 ```
 
 Kernel can be removed using 
