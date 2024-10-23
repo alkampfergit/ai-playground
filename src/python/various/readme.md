@@ -30,7 +30,7 @@ python -m ipykernel install --user --name=various
 Kernel can be removed using 
 
 ```bash
-jupyter kernelspec remove langchain_experiments
+jupyter kernelspec remove various
 ```
 
 ## Troubleshooting
