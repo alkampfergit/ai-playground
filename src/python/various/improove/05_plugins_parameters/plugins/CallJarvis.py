@@ -36,7 +36,43 @@ class Tasks:
         # api will return a list of tasks
         tasks = ["Task_3", "Task_4", "Task_6"]
         return tasks
+
+    class LoadTaskInput(BaseModel):
+        task_id: str = Field(description="The id of the task to load")
+        
+    def load_task(self, task_id: str) -> str:
+        """
+        Load a task from the API and return the task content in json format
+        """
+        print(f"Loading task {task_id}")
+        # Here you should call the API to load a task
+        # api will return the task content
+        tasks = {
+            "Task_3": {
+                "id": "Task_3",
+                "title": "Hey I'm task 3",
+                "description": "This is the description of task 3",
+                "version": 5,
+                "due_date": "2021-10-10"
+            },
+            "Task_4": {
+                "id": "Task_4",
+                "title": "I'm beautiful task 4",
+                "description": "This is the description of task 4",
+                "version": 5,
+                "due_date": "2022-10-10"
+            },
+            "Task_6": {
+                "id": "Task_6",
+                "title": "I'm the six",
+                "description": "This is the description of task 6",
+                "version": 5,
+                "due_date": "2023-10-10"
+            }
+        }
+        return tasks.get(task_id)
     
+
 
     class LoadTasksInput(BaseModel):
         task_ids: list[str] = Field(description="The ids of the tasks to load")
@@ -77,40 +113,5 @@ class Tasks:
         ret_value = json.dumps(selected_tasks)
         print(f"get tasks returned {ret_value}")
         return ret_value
-    
-    class LoadTaskInput(BaseModel):
-        task_id: str = Field(description="The id of the task to load")
-        
-    def load_task(self, task_id: str) -> str:
-        """
-        Load a task from the API and return the task content in json format
-        """
-        print(f"Loading task {task_id}")
-        # Here you should call the API to load a task
-        # api will return the task content
-        tasks = {
-            "Task_3": {
-                "id": "Task_3",
-                "title": "Hey I'm task 3",
-                "description": "This is the description of task 3",
-                "version": 5,
-                "due_date": "2021-10-10"
-            },
-            "Task_4": {
-                "id": "Task_4",
-                "title": "I'm beautiful task 4",
-                "description": "This is the description of task 4",
-                "version": 5,
-                "due_date": "2022-10-10"
-            },
-            "Task_6": {
-                "id": "Task_6",
-                "title": "I'm the six",
-                "description": "This is the description of task 6",
-                "version": 5,
-                "due_date": "2023-10-10"
-            }
-        }
-        return tasks.get(task_id)
 
         
