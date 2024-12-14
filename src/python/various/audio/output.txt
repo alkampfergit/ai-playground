@@ -1,0 +1,52 @@
+section S:\OneDrive\Documenti\ordine_ingegneri\Autocad\modulo2\1.wav
+ Allora, siamo arrivati al disegno di precisione.
+ Nella quinta ora vedremo quali sono gli strumenti che Autocad mette a disposizione per realizzare
+ dei disegni precisi.
+ Cosa vuol dire disegni precisi?
+ Che si tratti di disegni architettonici o che si tratti di disegni di componentistica o di design, avere un disegno preciso significa avere un disegno che ha esattamente le misure, le proporzioni e le indicazioni che noi vogliamo ottenere.
+ Se noi vediamo un disegno stampato, un disegno quindi già realizzato, possiamo considerarne un preciso perché le misure una volta verificate tramite metodi manuali come i regali non corrispondono.
+ Oppure, che ne so, perché l'incrocio delle linee non è esatto, la misura degli angoli, l'ortogonalità per esempio non è rispettata.
+ Ora, Autocad per tutte queste problematiche è veramente un dono del cielo per chi, come posso essere io, è arrivato alla facoltà di architettura dopo un liceo, comunque un liceo classico, una scuola in cui non si era mai fatto disegno tecnico
+ e disegno preciso al tecnigrafo era un incubo.
+ Tuttavia, Autocad fa quello che gli si dice di fare.
+ La precisione non è una dot di Autocad, o meglio, Autocad è preciso nel fare quello che noi gli indichiamo di fare, ma se noi gli diamo delle indicazioni sbagliate, lui sbaglierà comunque.
+ Per cui la base per fare dei disegni di precisione, oltre a conoscere tutti gli strumenti che andremo a ellaminare, è la dimensione mentale.
+ Vediamo adesso gli argomenti di quest'ora, che sono per l'appunto gli strumenti per poter scegliere agevolmente i punti degli oggetti che ci interessano.
+ Gli strumenti orto e polare sono dei settaggi che forzano il mouse a rispettare delle direzioni espresse in gradi.
+ Ricordiamo che stiamo lavorando in coordinate cartesiane, quindi x, y e z. Per il momento lavoriamo soltanto sul piano, quindi in dimensione x e y.
+ Come ruotare questi assi cartesiani? Perché può servire cambiare il punto di origine del nostro foglio.
+ Gli snap ad oggetto, quindi quali sono i punti notevoli degli oggetti riconosciuti da Autocad.
+ Altri strumenti di supporto, in questo caso un po' meno usati ancora e lasciati in disparte, l'input dinamico l'abbiamo già visto, lo rivediamo adesso nell'utilizzo appunto del disegno di precisione, quindi nell'immissione dei valori delle coordinate.
+ La differenza tra inserimento di coordinate assolute e relative, ovvero le coordinate assolute sono quelle che fanno riferimento come punto di origine 0,0,0 all'inpunto d'incontro degli assi cartesiani.
+ Le coordinate relative invece vengono inserite in relazione a un punto che non è quello di origine, ma che noi assumiamo momentaneamente come punto base.
+ Il metodo di disegno attraverso le parallele, il comando offset, i comandi tagli e stendi sono tutti comandi per l'appunto di supporto, di aiuto, di ripulitura in alcuni casi, per realizzare un disegno che possa dare le giuste indicazioni a chi poi deve realizzare quanto abbiamo progettato.
+ Durante quest'ora faremo molti esercizi, perché per imparare a utilizzare questi strumenti è inutile fare molte descrizioni, l'importante è affrontarli subito e utilizzandoli si imparano e si comprendono molto meglio che neppure ascoltando molte chiacchiere.
+ Iniziamo con la scelta dei punti con gli strumenti di precisione.
+ Per iniziare a prendere confidenza con questi strumenti, sfegniamo l'entità geometrica più semplice, cioè la linea.
+ Il comando linea permette di prendere confidenza con la linea elastica, un elemento visivo ricorrente anche in molti altri comandi ed di estrema importanza.
+ Con il comando linea accessibile tramite inizio-disegna-linea, vengono richiesti alcuni punti per creare una spezzata.
+ Dopo aver fissato il primo punto, compare una linea che congiunge tale punto al cursore.
+ Questa linea viene chiamata appunto linea elastica e compare in molte altre situazioni, per esempio quando si richiedono raggi per i cerchi di stanza o angoli.
+ Successivamente verranno analizzati gli strumenti orto e polare per vincolare la direzione della linea elastica e permettere la scelta di un punto in tale direzione, digitandone unicamente la distanza.
+ Altri strumenti, come gli snap ad oggetto, che permettono di selezionare i punti notevoli degli oggetti, sono invece indipendenti dalla direzione della linea elastica e privalgono su di essa.
+ Un altro sistema indipendente dalla linea elastica per scegliere i punti è quello di mettere direttamente la tastiera del loro coordinate,
+ sfruttando vari sistemi 2D e 3D.
+ In AutoCAD l'utilizzo delle coordinate è molto intuitivo, grazie all'input dinamico, attivabile tramite il pulsante DIN della barra di stato.
+ Questo strumento è di grande aiuto anche nelle situazioni in cui la scelta del punto si basa su dati geometrici espressi in termini di angoli e di distanze.
+ Gli strumenti di scelta dei punti hanno senso solo se AutoCAD chiede di indicare un punto, una misura, un angolo, uno spostamento o un fattore di scala.
+ Questa situazione è riconoscibile sia dalla richiesta posta sulla riga di comando, sia dalla forma del puntatore del mouse, che si presenta come una croce senza quadratini.
+ In tutti gli altri casi la scelta precisa di un punto non produce or come effetto.
+ In molte situazioni è necessario disegnare parallelamente a direzione stabile.
+ Un caso abbastanza frequente è quello in cui si deve disegnare parallelamente gli assi X e Y.
+ A tale scopo è possibile attivare la modalità ORTO tramite il tasto F8 oppure tramite la barra di stato nella parte inferiore dello schermo come vedete nella figura.
+ La modalità ORTO è rappresentata da un angolo retto.
+ Attivando ORTO la linea elastica si muove solo in direzione arizontale e verticale.
+ Per fornire una misura precisa potete registrare il valore da tastiera e, solo dopo aver diretto la linea elastica nella direzione desiderata senza fare clic, premere il tasto invia.
+ Questa operazione è detta in missione diretta della distanza.
+ Lo strumento polare, attivabile sia dalla barra di stato sia tramite il tasto F10, funziona in maniera simile a ORTO.
+ Anche in questo caso la linea elastica viene guidata su direzione preferenziale.
+ Chiaramente una modalità esclude l'altra.
+ Quindi se è attiva la modalità ortogonale viene disattivata quella polare e viceversa.
+ Qual è la differenza?
+ In ORTO potete disegnare solo in incrementi di angoli di 90°.
+ Mentre con la modalità polare potete disegnare con qualunque inclinazione, ma avete la possibilità di inserire infiniti angoli e poi selezionarli in modo che, man mano che spostate il cursore, questo vi segnali quando siete sulla direzione che preferite.
