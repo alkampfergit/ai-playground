@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "WebSearch",
+      "WebFetch(domain:cookbook.openai.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
